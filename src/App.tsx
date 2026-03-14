@@ -874,6 +874,14 @@ function HomeView({
           >
             ↶ Undo
           </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => window.location.reload()}
+            style={{ whiteSpace: "nowrap", marginLeft: "12px" }}
+            title="Reload to get the latest version"
+          >
+            ↻ Reload
+          </button>
         </div>
       </div>
 
