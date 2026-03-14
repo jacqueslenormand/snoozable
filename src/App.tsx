@@ -870,17 +870,18 @@ function HomeView({
             className="btn btn-secondary btn-sm"
             onClick={onUndo}
             disabled={!canUndo}
-            style={{ whiteSpace: "nowrap", marginLeft: "12px" }}
+            style={{ marginLeft: "12px", padding: "6px", fontSize: "16px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center" }}
+            title="Undo last action"
           >
-            ↶ Undo
+            ↶
           </button>
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => window.location.reload()}
-            style={{ whiteSpace: "nowrap", marginLeft: "12px" }}
+            style={{ marginLeft: "8px", padding: "6px", fontSize: "16px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center" }}
             title="Reload to get the latest version"
           >
-            ↻ Reload
+            ↻
           </button>
         </div>
       </div>
