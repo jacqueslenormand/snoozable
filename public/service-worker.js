@@ -57,21 +57,17 @@ self.addEventListener('fetch', (event) => {
       })
     );
   } else {
-    // Cache-first for assets: use cached version, update in background
+    // Stale-while-revalidate for assets: return cached immediately, update in background
     event.respondWith(
-      caches.match(event.request).then((response) => {
-        // Return cached response if available
-        if (response) {
-          return response;
-        }
-
-        // Otherwise fetch from network and cache it
-        return fetch(event.request).then((response) => {
-          // Don't cache non-successful responses
+      caches.match(event.request).then((cachedResponse) => {
+        // Return cached response immediately
+        const fetchPromise = fetch(event.request).then((response) => {
+          // Validate response
           if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
           }
 
+          // Update cache in background
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
@@ -79,9 +75,11 @@ self.addEventListener('fetch', (event) => {
 
           return response;
         }).catch(() => {
-          // Return cached version if network fails
-          return caches.match(event.request);
+          // Network request failed, that's okay - we already returned cached version
         });
+
+        // Return cached version if available, otherwise wait for network
+        return cachedResponse || fetchPromise;
       })
     );
   }
