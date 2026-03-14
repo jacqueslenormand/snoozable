@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import * as z from "zod"
 import "./App.css"
 
@@ -105,13 +105,35 @@ const deleteLocation = (state: State, locationId: string): State => {
   }
 }
 
+type ActionType = 
+  | "Add location"
+  | "Add task"
+  | "Complete task"
+  | "Snooze task"
+  | "Delete task"
+  | "Delete location"
+  | "Edit task"
+
+const createTaskWithSchedule = (
+  name: string,
+  description: string,
+  locationIds: string[],
+  schedule: Task["schedule"],
+): Task => {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    description,
+    locationIds,
+    schedule,
+  }
+}
+
 function dayOfDate(date: Date): number {
-  // days start and end at 2am
+  // days start and end at midnight
   // prints a number that can be used for subtraction and comparison
   // NOT day of year
-  const adjustedDate = new Date(date)
-  adjustedDate.setHours(adjustedDate.getHours() - 2)
-  return Math.floor(adjustedDate.getTime() / (1000 * 60 * 60 * 24))
+  return Math.floor(date.getTime() / (1000 * 60 * 60 * 24))
 }
 
 function testDayOfDate() {
@@ -151,17 +173,26 @@ const isTaskDueOnDay = (
   asof: Date,
 ): boolean => {
   if (task.schedule.t === "interval") {
-    // If snoozed today, not due
-    if (lastSnoozedDay !== undefined && lastSnoozedDay === dayOfDateValue) {
-      return false
-    }
-    // If never completed, due
-    if (!lastCompletedTime) {
+    if (!lastCompletedTime && lastSnoozedDay === undefined) {
+      // Never completed or snoozed, due today
       return true
     }
-    // If enough days have passed since completion, due
-    const lastCompletedDay = dayOfDate(new Date(lastCompletedTime))
-    return dayOfDateValue - lastCompletedDay >= task.schedule.intervalInDays
+
+    // Determine which action is most recent
+    const lastCompletedDay = lastCompletedTime ? dayOfDate(new Date(lastCompletedTime)) : -Infinity
+    const lastSnoozedDayNum = lastSnoozedDay ?? -Infinity
+    const now = dayOfDate(new Date())
+
+    if (lastSnoozedDayNum > lastCompletedDay) {
+      // Snoozed more recently - show on next day only
+      return dayOfDateValue === lastSnoozedDayNum + 1
+    } else if (lastCompletedDay !== -Infinity) {
+      // Completed more recently - show on specific day only, and only if that day is today or in the future
+      const showDay = lastCompletedDay + task.schedule.intervalInDays + 1
+      return dayOfDateValue === showDay && dayOfDateValue >= now
+    }
+
+    return false
   }
 
   if (task.schedule.t === "weekly") {
@@ -244,10 +275,14 @@ function DraggableDiv({
   children,
   onDragged,
   onSwipeLeft,
+  disabled = false,
+  onClick,
 }: {
   children: React.ReactNode
-  onDragged: (event: React.DragEvent<HTMLDivElement>) => void
-  onSwipeLeft: (event: React.DragEvent<HTMLDivElement>) => void
+  onDragged: (event: React.TouchEvent<HTMLDivElement>) => void
+  onSwipeLeft: (event: React.TouchEvent<HTMLDivElement>) => void
+  disabled?: boolean
+  onClick?: () => void
 }) {
   const [state, setStatus] = useState<{ t: "idle" } | { t: "dragging"; startX: number }>({
     t: "idle",
@@ -256,75 +291,610 @@ function DraggableDiv({
 
   return (
     <div
-      draggable
-      className={`task-card ${state.t === "dragging" ? "dragging" : ""}`}
-      onDragStart={(ev) => {
-        setStatus({ t: "dragging", startX: ev.clientX })
-        setDragDelta(0)
-      }}
-      onDrag={(ev) => {
-        if (state.t === "dragging" && ev.clientX) {
-          setDragDelta(ev.clientX - state.startX)
+      className={`task-card ${state.t === "dragging" && !disabled ? "dragging" : ""}`}
+      onTouchStart={(ev) => {
+        if (!disabled) {
+          const touch = ev.touches[0]
+          setStatus({ t: "dragging", startX: touch.clientX })
+          setDragDelta(0)
         }
       }}
-      onDragEnd={(ev) => {
-        if (state.t === "dragging") {
-          const deltaX = ev.clientX - state.startX
+      onTouchMove={(ev) => {
+        if (state.t === "dragging" && ev.touches[0] && !disabled) {
+          const touch = ev.touches[0]
+          const delta = touch.clientX - state.startX
+          setDragDelta(delta)
+        }
+      }}
+      onTouchEnd={(ev) => {
+        if (state.t === "dragging" && !disabled) {
+          const deltaX = dragDelta
           if (deltaX > 30) {
-            onDragged(ev)
+            onDragged(ev as any)
           }
           if (deltaX < -30) {
-            onSwipeLeft(ev)
+            onSwipeLeft(ev as any)
           }
+        } else if (state.t === "dragging" && dragDelta === 0 && onClick) {
+          // If not dragging much and click handler exists, treat as click
+          onClick()
         }
         setStatus({ t: "idle" })
         setDragDelta(0)
       }}
+      onClick={() => {
+        if (state.t === "idle" && onClick) {
+          onClick()
+        }
+      }}
       style={{
         transform: dragDelta !== 0 ? `translateX(${dragDelta * 0.3}px)` : undefined,
+        background: state.t === "dragging" ? "black" : undefined,
+        userSelect: "none",
+        touchAction: "none",
       }}
     >
-      <div className="task-card-hint">
-        <span className="task-card-hint-left">← Snooze</span>
-        <span className="task-card-hint-right">Complete →</span>
-      </div>
+      {state.t === "dragging" && !disabled && (
+        <div className="task-card-hint">
+          <span className="task-card-hint-left">← Snooze</span>
+          <span className="task-card-hint-right">Complete →</span>
+        </div>
+      )}
       {children}
     </div>
   )
 }
 
-function HomeView({ state, setState }: { state: State; setState: (s: State) => void }) {
+function TaskFormModal(
+  {
+    isOpen,
+    onClose,
+    onSubmit,
+    state,
+  }: {
+    isOpen: boolean
+    onClose: () => void
+    onSubmit: (task: Task) => void
+    state: State
+  }
+) {
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([])
+  const [scheduleType, setScheduleType] = useState<"interval" | "weekly" | "monthly">("interval")
+  const [intervalDays, setIntervalDays] = useState("0")
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([])
+  const [dayOfMonth, setDayOfMonth] = useState("1")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!name.trim()) {
+      alert("Please enter a task name")
+      return
+    }
+
+    let schedule: Task["schedule"]
+    if (scheduleType === "interval") {
+      schedule = {
+        t: "interval",
+        intervalInDays: parseInt(intervalDays) || 0,
+      }
+    } else if (scheduleType === "weekly") {
+      if (daysOfWeek.length === 0) {
+        alert("Please select at least one day of the week")
+        return
+      }
+      schedule = {
+        t: "weekly",
+        daysOfWeek: daysOfWeek.sort(),
+      }
+    } else {
+      schedule = {
+        t: "monthly",
+        dayOfMonth: Math.min(28, Math.max(1, parseInt(dayOfMonth) || 1)),
+      }
+    }
+
+    const task = createTaskWithSchedule(name, description, selectedLocations, schedule)
+    onSubmit(task)
+
+    setName("")
+    setDescription("")
+    setSelectedLocations([])
+    setScheduleType("interval")
+    setIntervalDays("0")
+    setDaysOfWeek([])
+    setDayOfMonth("1")
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>➕ New Task</h2>
+          <button className="modal-close-btn" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Task Name *</label>
+            <input
+              type="text"
+              placeholder="e.g., Go to gym"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              placeholder="e.g., 30 min cardio"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {state.locations.length > 0 && (
+            <div className="form-group">
+              <label>📍 Locations</label>
+              <div className="location-selector">
+                {state.locations.map((location) => (
+                  <button
+                    key={location.id}
+                    type="button"
+                    className={`location-option ${selectedLocations.includes(location.id) ? "selected" : ""}`}
+                    onClick={() => {
+                      if (selectedLocations.includes(location.id)) {
+                        setSelectedLocations((prev) =>
+                          prev.filter((id) => id !== location.id),
+                        )
+                      } else {
+                        setSelectedLocations((prev) => [...prev, location.id])
+                      }
+                    }}
+                  >
+                    {location.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>🔄 Schedule</label>
+            <div className="schedule-options">
+              <button
+                type="button"
+                className={`schedule-option ${scheduleType === "interval" ? "active" : ""}`}
+                onClick={() => setScheduleType("interval")}
+              >
+                Daily
+              </button>
+              <button
+                type="button"
+                className={`schedule-option ${scheduleType === "weekly" ? "active" : ""}`}
+                onClick={() => setScheduleType("weekly")}
+              >
+                Weekly
+              </button>
+              <button
+                type="button"
+                className={`schedule-option ${scheduleType === "monthly" ? "active" : ""}`}
+                onClick={() => setScheduleType("monthly")}
+              >
+                Monthly
+              </button>
+            </div>
+
+            <div className="schedule-details">
+              {scheduleType === "interval" && (
+                <div className="form-group">
+                  <label>Interval between (days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={intervalDays}
+                    onChange={(e) => setIntervalDays(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {scheduleType === "weekly" && (
+                <div className="form-group">
+                  <label>Days of the week</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-around",
+                      gap: "8px",
+                      padding: "12px",
+                      background: "white",
+                    }}
+                  >
+                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day, idx) => (
+                      <label
+                        key={idx}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "4px",
+                          flex: 1,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={daysOfWeek.includes(idx)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDaysOfWeek((prev) => [...prev, idx])
+                            } else {
+                              setDaysOfWeek((prev) => prev.filter((d) => d !== idx))
+                            }
+                          }}
+                        />
+                        <span style={{ fontSize: "12px", color: "#666" }}>{day}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {scheduleType === "monthly" && (
+                <div className="form-group">
+                  <label>Day of the month (1-28)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={dayOfMonth}
+                    onChange={(e) => setDayOfMonth(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Create Task
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function LocationFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onSubmit: (location: Location) => void
+}) {
+  const [name, setName] = useState("")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!name.trim()) {
+      alert("Please enter a location name")
+      return
+    }
+
+    const location = createLocation(name)
+    onSubmit(location)
+
+    setName("")
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>➕ New Location</h2>
+          <button className="modal-close-btn" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Location Name *</label>
+            <input
+              type="text"
+              placeholder="e.g., Apartment, Gym, Workplace"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Create Location
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function TaskDetailModal({
+  isOpen,
+  onClose,
+  task,
+  state,
+  onEdit,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  task: Task | null
+  state: State
+  onEdit: () => void
+}) {
+  if (!task) return null
+
+  const getScheduleText = () => {
+    if (task.schedule.t === "interval") {
+      return `Every ${task.schedule.intervalInDays === 0 ? "day" : `${task.schedule.intervalInDays + 1} days`}`
+    }
+    if (task.schedule.t === "weekly") {
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      const dayNames = task.schedule.daysOfWeek.map((d) => days[d]).join(", ")
+      return `Weekly on ${dayNames}`
+    }
+    if (task.schedule.t === "monthly") {
+      return `Monthly on day ${task.schedule.dayOfMonth}`
+    }
+    return ""
+  }
+
+  return (
+    <div className={`modal-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h2 style={{ marginTop: 0 }}>{task.name}</h2>
+
+        {task.description && (
+          <div style={{ marginBottom: "16px" }}>
+            <h4 style={{ margin: "0 0 8px 0" }}>Description</h4>
+            <p style={{ margin: 0, color: "#666" }}>{task.description}</p>
+          </div>
+        )}
+
+        <div style={{ marginBottom: "16px" }}>
+          <h4 style={{ margin: "0 0 8px 0" }}>Schedule</h4>
+          <p style={{ margin: 0, color: "#666" }}>{getScheduleText()}</p>
+        </div>
+
+        {task.locationIds.length > 0 && (
+          <div style={{ marginBottom: "16px" }}>
+            <h4 style={{ margin: "0 0 8px 0" }}>Locations</h4>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {task.locationIds.map((locId) => {
+                const location = state.locations.find((l) => l.id === locId)
+                return location ? (
+                  <span key={locId} className="task-location-badge" style={{ padding: "4px 8px" }}>
+                    {location.name}
+                  </span>
+                ) : null
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Close
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => {
+            onEdit()
+            onClose()
+          }}>
+            Edit Task
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TaskEditModal({
+  isOpen,
+  onClose,
+  task,
+  state,
+  onSubmit,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  task: Task | null
+  state: State
+  onSubmit: (updatedTask: Task) => void
+}) {
+  const [name, setName] = useState(task?.name || "")
+  const [description, setDescription] = useState(task?.description || "")
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(task?.locationIds || [])
+
+  // Update state when task prop changes
+  useEffect(() => {
+    if (task) {
+      setName(task.name)
+      setDescription(task.description)
+      setSelectedLocations(task.locationIds)
+    }
+  }, [task])
+
+  if (!task) return null
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const updatedTask: Task = {
+      ...task,
+      name,
+      description,
+      locationIds: selectedLocations,
+    }
+    
+    onSubmit(updatedTask)
+    onClose()
+  }
+
+  return (
+    <div className={`modal-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h2 style={{ marginTop: 0 }}>Edit Task</h2>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="task-name-edit">Task Name</label>
+            <input
+              id="task-name-edit"
+              type="text"
+              className="form-control"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter task name"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="task-desc-edit">Description</label>
+            <textarea
+              id="task-desc-edit"
+              className="form-control"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter task description (optional)"
+              rows={3}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Locations</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {state.locations.map((location) => (
+                <label key={location.id} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedLocations.includes(location.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedLocations((prev) => [...prev, location.id])
+                      } else {
+                        setSelectedLocations((prev) => prev.filter((id) => id !== location.id))
+                      }
+                    }}
+                  />
+                  {location.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState: (s: State, action?: ActionType) => void; onUndo: () => void; canUndo: boolean }) {
   const [locationsIdsSelected, setLocationIdsSelected] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const tasksAtLocation = getTasksDueAtLocations(state, locationsIdsSelected, selectedDate)
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const canGoBack = selectedDate > today
+  const isToday = selectedDate.toDateString() === today.toDateString()
 
-  const dateStr = selectedDate.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+  const goBack = () => {
+    const newDate = new Date(selectedDate)
+    newDate.setDate(newDate.getDate() - 1)
+    setSelectedDate(newDate)
+  }
+
+  const goForward = () => {
+    const newDate = new Date(selectedDate)
+    newDate.setDate(newDate.getDate() + 1)
+    setSelectedDate(newDate)
+  }
+
+  const formatDate = (date: Date) => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return `${days[date.getDay()]} ${months[date.getMonth()]} ${date.getDate()}`
+  }
 
   return (
     <div className="home-view">
       <div className="view-header">
-        <div className="date-picker-section">
-          <label>
-            📅 View tasks for:
-            <input
-              type="date"
-              value={selectedDate.toISOString().split("T")[0]}
-              onChange={(e) => setSelectedDate(new Date(e.target.value))}
-            />
-          </label>
-          <div style={{ marginTop: "8px", fontSize: "12px", color: "#999" }}>
-            {dateStr}
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "20px", justifyContent: "center" }}>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={goBack}
+            disabled={!canGoBack}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            ← Prev
+          </button>
+          <div style={{ minWidth: "120px", textAlign: "center", fontSize: "16px", fontWeight: "500" }}>
+            {formatDate(selectedDate)}
           </div>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={goForward}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            Next →
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={onUndo} 
+            disabled={!canUndo}
+            style={{ whiteSpace: "nowrap", marginLeft: "12px" }}
+          >
+            ↶ Undo
+          </button>
         </div>
       </div>
 
       {state.locations.length > 0 && (
         <div className="location-filter">
-          <div className="filter-title">📍 Filter by location</div>
           <div className="location-list">
             {state.locations.map((location) => (
               <label key={location.id} className="location-chip">
@@ -359,15 +929,17 @@ function HomeView({ state, setState }: { state: State; setState: (s: State) => v
             return (
               <DraggableDiv
                 key={task.id}
+                disabled={!isToday}
+                onClick={() => setSelectedTaskId(task.id)}
                 onDragged={() => {
-                  setState(addTaskCompletion(state, task.id, new Date()))
+                  setState(addTaskCompletion(state, task.id, new Date()), "Complete task")
                 }}
                 onSwipeLeft={() => {
-                  setState(snoozeTask(state, task.id, new Date()))
+                  setState(snoozeTask(state, task.id, new Date()), "Snooze task")
                 }}
               >
                 <div className="task-card-content">
-                  <div className="task-name">✓ {task.name}</div>
+                  <div className="task-name">{task.name}</div>
                   {task.description && <div className="task-description">{task.description}</div>}
                   <div className="task-meta">
                     {task.locationIds.length > 0 && (
@@ -394,19 +966,60 @@ function HomeView({ state, setState }: { state: State; setState: (s: State) => v
           })
         )}
       </div>
+
+      <TaskDetailModal
+        isOpen={selectedTaskId !== null}
+        onClose={() => setSelectedTaskId(null)}
+        task={selectedTaskId ? state.tasks.find((t) => t.id === selectedTaskId) || null : null}
+        state={state}
+        onEdit={() => {
+          setSelectedTaskId(null)
+          setEditingTaskId(selectedTaskId)
+        }}
+      />
+
+      <TaskEditModal
+        isOpen={editingTaskId !== null}
+        onClose={() => setEditingTaskId(null)}
+        task={editingTaskId ? state.tasks.find((t) => t.id === editingTaskId) || null : null}
+        state={state}
+        onSubmit={(updatedTask) => {
+          const newTasks = state.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+          setState({
+            ...state,
+            tasks: newTasks,
+          }, "Edit task")
+          setEditingTaskId(null)
+        }}
+      />
     </div>
   )
 }
 
-function ManageTasksView({ state, setState }: { state: State; setState: (s: State) => void }) {
+function ManageTasksView({ state, setState }: { state: State; setState: (s: State, action?: ActionType) => void }) {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
   return (
     <div className="manage-view">
       <h2>📋 Tasks</h2>
       <div style={{ marginBottom: "20px" }}>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           ➕ Add New Task
         </button>
       </div>
+
+      <TaskFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={(task) => {
+          setState({
+            ...state,
+            tasks: [...state.tasks, task],
+          }, "Add task")
+        }}
+        state={state}
+      />
+
       <div className="item-list">
         {state.tasks.length === 0 ? (
           <div className="empty-state">
@@ -432,7 +1045,7 @@ function ManageTasksView({ state, setState }: { state: State; setState: (s: Stat
                 <button className="btn btn-secondary btn-sm">Edit</button>
                 <button
                   className="btn btn-danger btn-sm"
-                  onClick={() => setState(deleteTask(state, task.id))}
+                  onClick={() => setState(deleteTask(state, task.id), "Delete task")}
                 >
                   Delete
                 </button>
@@ -445,18 +1058,26 @@ function ManageTasksView({ state, setState }: { state: State; setState: (s: Stat
   )
 }
 
-function ManageLocationsView({ state, setState }: { state: State; setState: (s: State) => void }) {
+function ManageLocationsView({ state, setState }: { state: State; setState: (s: State, action?: ActionType) => void }) {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
   return (
     <div className="manage-view">
       <h2>📍 Locations</h2>
       <div style={{ marginBottom: "20px" }}>
-        <button
-          className="btn btn-primary"
-          onClick={() => setState(addLocation(state, createLocation("New Location")))}
-        >
+        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           ➕ Add New Location
         </button>
       </div>
+
+      <LocationFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={(location) => {
+          setState(addLocation(state, location), "Add location")
+        }}
+      />
+
       <div className="item-list">
         {state.locations.length === 0 ? (
           <div className="empty-state">
@@ -476,7 +1097,7 @@ function ManageLocationsView({ state, setState }: { state: State; setState: (s: 
               <div className="item-actions">
                 <button
                   className="btn btn-danger btn-sm"
-                  onClick={() => setState(deleteLocation(state, location.id))}
+                  onClick={() => setState(deleteLocation(state, location.id), "Delete location")}
                 >
                   Delete
                 </button>
@@ -489,13 +1110,40 @@ function ManageLocationsView({ state, setState }: { state: State; setState: (s: 
   )
 }
 
+function Toast({ message, isVisible }: { message: string; isVisible: boolean }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "20px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        backgroundColor: "#333",
+        color: "#fff",
+        padding: "12px 20px",
+        borderRadius: "8px",
+        fontSize: "14px",
+        pointerEvents: "none",
+        opacity: isVisible ? 1 : 0,
+        transition: "opacity 0.3s ease",
+        zIndex: 200,
+      }}
+    >
+      {message}
+    </div>
+  )
+}
+
 function App() {
   const savedState = getStateFromLocalStorage()
   const [state, _setState] = useState(savedState || initialState)
   const [stateHistory, setStateHistory] = useState<State[]>([])
+  const [actionHistory, setActionHistory] = useState<ActionType[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [toastMessage, setToastMessage] = useState<string>("")
+  const [showToast, setShowToast] = useState(false)
 
-  function setState(s: State) {
+  function setState(s: State, action?: ActionType) {
     const zodParsed = stateSchema.safeParse(s)
     if (!zodParsed.success) {
       setValidationError("Invalid state data: " + zodParsed.error.message)
@@ -504,15 +1152,26 @@ function App() {
 
     localStorage.setItem("__workout_state", JSON.stringify(s))
     setStateHistory((prev) => [...prev, state].slice(-9))
+    if (action) {
+      setActionHistory((prev) => [...prev, action].slice(-9))
+    }
     _setState(s)
   }
 
   function handleUndo() {
     if (stateHistory.length > 0) {
       const previousState = stateHistory[stateHistory.length - 1]
+      const lastAction = actionHistory[actionHistory.length - 1]
       localStorage.setItem("__workout_state", JSON.stringify(previousState))
       _setState(previousState)
       setStateHistory((prev) => prev.slice(0, -1))
+      setActionHistory((prev) => prev.slice(0, -1))
+      
+      if (lastAction) {
+        setToastMessage(`Undone: ${lastAction}`)
+        setShowToast(true)
+        setTimeout(() => setShowToast(false), 2000)
+      }
     }
   }
 
@@ -540,7 +1199,7 @@ function App() {
   const meat = (() => {
     switch (view) {
       case "home":
-        return <HomeView state={state} setState={setState} />
+        return <HomeView state={state} setState={setState} onUndo={handleUndo} canUndo={stateHistory.length > 0} />
       case "manage-tasks":
         return <ManageTasksView state={state} setState={setState} />
       case "manage-locations":
@@ -550,13 +1209,6 @@ function App() {
 
   return (
     <div className="app-container">
-      <div className="app-header">
-        <h1>💪 Workout Planner</h1>
-        <button className="btn btn-secondary btn-sm" onClick={handleUndo} disabled={stateHistory.length === 0}>
-          ↶ Undo
-        </button>
-      </div>
-
       <div className="app-content">
         {meat}
       </div>
@@ -581,6 +1233,7 @@ function App() {
           📍 Locations
         </button>
       </nav>
+      <Toast message={toastMessage} isVisible={showToast} />
     </div>
   )
 }
