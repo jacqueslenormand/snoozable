@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react"
 import * as z from "zod"
+import { isTaskDueOnDay, dayOfDate } from "./taskUtils"
 import "./App.css"
 
 const locationSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().default(""),
 })
 
 type Location = z.infer<typeof locationSchema>
@@ -45,10 +47,11 @@ const stateSchema = z.object({
 
 type State = z.infer<typeof stateSchema>
 
-const createLocation = (name: string): Location => {
+const createLocation = (name: string, description: string = ""): Location => {
   return {
     id: crypto.randomUUID(),
     name,
+    description,
   }
 }
 
@@ -129,32 +132,6 @@ const createTaskWithSchedule = (
   }
 }
 
-function dayOfDate(date: Date): number {
-  // days start and end at midnight
-  // prints a number that can be used for subtraction and comparison
-  // NOT day of year
-  return Math.floor(date.getTime() / (1000 * 60 * 60 * 24))
-}
-
-function testDayOfDate() {
-  // between Jan 1,1990 at 1am and jan 1 1990 at 3am, there should be 1 day
-  const date1 = new Date("1990-01-01T01:00:00Z")
-  const date2 = new Date("1990-01-01T03:00:00Z")
-  console.assert(dayOfDate(date1) === dayOfDate(date2), "Test failed")
-  // between jan 1, 1990 at 1am and jan 1 1990 at 1:30 am, there should be 0 days
-  const date3 = new Date("1990-01-01T01:30:00Z")
-  console.assert(dayOfDate(date1) === dayOfDate(date3), "Test failed")
-  // between jan 1, 1990 and jan 1, 1991 there should be more than 300 days
-  const date4 = new Date("1990-01-01T00:00:00Z")
-  const date5 = new Date("1991-01-01T00:00:00Z")
-  console.assert(dayOfDate(date5) - dayOfDate(date4) > 300, "Test failed")
-  // between jan 1, 1990 at 4pm and jan 2, 1990 at 4pm there should be 1 day
-  const date6 = new Date("1990-01-01T16:00:00Z")
-  const date7 = new Date("1990-01-02T16:00:00Z")
-  console.assert(dayOfDate(date6) === dayOfDate(date7), "Test failed")
-}
-testDayOfDate()
-
 function setIntersection<T>(a: Set<T>, b: Set<T>): Set<T> {
   const intersection = new Set<T>()
   for (const item of a) {
@@ -163,49 +140,6 @@ function setIntersection<T>(a: Set<T>, b: Set<T>): Set<T> {
     }
   }
   return intersection
-}
-
-const isTaskDueOnDay = (
-  task: Task,
-  dayOfDateValue: number,
-  lastCompletedTime: number | undefined,
-  lastSnoozedDay: number | undefined,
-  asof: Date,
-): boolean => {
-  if (task.schedule.t === "interval") {
-    if (!lastCompletedTime && lastSnoozedDay === undefined) {
-      // Never completed or snoozed, due today
-      return true
-    }
-
-    // Determine which action is most recent
-    const lastCompletedDay = lastCompletedTime ? dayOfDate(new Date(lastCompletedTime)) : -Infinity
-    const lastSnoozedDayNum = lastSnoozedDay ?? -Infinity
-    const now = dayOfDate(new Date())
-
-    if (lastSnoozedDayNum > lastCompletedDay) {
-      // Snoozed more recently - show on next day only
-      return dayOfDateValue === lastSnoozedDayNum + 1
-    } else if (lastCompletedDay !== -Infinity) {
-      // Completed more recently - show on specific day only, and only if that day is today or in the future
-      const showDay = lastCompletedDay + task.schedule.intervalInDays + 1
-      return dayOfDateValue === showDay && dayOfDateValue >= now
-    }
-
-    return false
-  }
-
-  if (task.schedule.t === "weekly") {
-    const dayOfWeek = asof.getDay()
-    return task.schedule.daysOfWeek.includes(dayOfWeek)
-  }
-
-  if (task.schedule.t === "monthly") {
-    const dayOfMonth = asof.getDate()
-    return dayOfMonth === task.schedule.dayOfMonth
-  }
-
-  return false
 }
 
 const getTasksDueAtLocations = (state: State, locationIds: string[], asof: Date): Task[] => {
@@ -476,7 +410,7 @@ function TaskFormModal(
                 className={`schedule-option ${scheduleType === "interval" ? "active" : ""}`}
                 onClick={() => setScheduleType("interval")}
               >
-                Daily
+                Interval
               </button>
               <button
                 type="button"
@@ -588,6 +522,7 @@ function LocationFormModal({
   onSubmit: (location: Location) => void
 }) {
   const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -597,10 +532,11 @@ function LocationFormModal({
       return
     }
 
-    const location = createLocation(name)
+    const location = createLocation(name, description)
     onSubmit(location)
 
     setName("")
+    setDescription("")
     onClose()
   }
 
@@ -625,6 +561,16 @@ function LocationFormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              placeholder="Add notes about this location..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
             />
           </div>
 
@@ -839,7 +785,9 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
   
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const canGoBack = selectedDate > today
+  const selectedDateAtMidnight = new Date(selectedDate)
+  selectedDateAtMidnight.setHours(0, 0, 0, 0)
+  const canGoBack = selectedDateAtMidnight > today
   const isToday = selectedDate.toDateString() === today.toDateString()
 
   const goBack = () => {
@@ -920,7 +868,7 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
         {tasksAtLocation.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">✨</div>
-            <h3>All caught up!</h3>
+            <h3>{isToday ? 'All caught up!' : 'Nothing scheduled on this day'}</h3>
             <p>You have no tasks for this day</p>
           </div>
         ) : (
@@ -1090,6 +1038,7 @@ function ManageLocationsView({ state, setState }: { state: State; setState: (s: 
             <div key={location.id} className="item-card">
               <div className="item-info">
                 <h3>{location.name}</h3>
+                {location.description && <p style={{ fontSize: "13px", color: "#666", margin: "4px 0 8px 0" }}>{location.description}</p>}
                 <p style={{ fontSize: "12px" }}>
                   {state.tasks.filter((t) => t.locationIds.includes(location.id)).length} tasks
                 </p>
