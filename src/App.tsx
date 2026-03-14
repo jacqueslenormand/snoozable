@@ -25,12 +25,12 @@ const taskSchema = z.object({
     z.object({
       // second most common type
       t: z.literal("monthly"),
-      dayOfMonth: z.number(),
+      dayOfMonth: z.number().min(0).max(28),
     }),
     z.object({
       // least common type
       t: z.literal("weekly"),
-      dayOfWeek: z.number().min(0).max(6), // 0 is sunday
+      daysOfWeek: z.array(z.number().min(0).max(6)), // 0 is sunday
     }),
   ]),
 })

@@ -1,73 +1,69 @@
-# React + TypeScript + Vite
+# 📋 Recurring Task Planner – Requirements
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 1. Application Overview
 
-Currently, two official plugins are available:
+- A **mobile-only Progressive Web App (PWA)** for managing recurring tasks.
+- Tasks can repeat on:
+  - **Interval basis** (e.g., every day, every 2 days).
+  - **Weekly basis** (specific days of the week).
+  - **Monthly basis** (specific day of the month, up to day 28).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 2. Locations
 
-## React Compiler
+- Each task is linked to one or more **locations** (e.g., apartment, gym, workplace).
+- Users can **add, edit, and delete locations**.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 3. Tasks
 
-## Expanding the ESLint configuration
+- Users can **add, edit, and delete tasks**.
+- Each task appears as a **full-width row** on the home screen.
+- Task interactions:
+  - **Swipe right** → mark as completed.
+  - **Swipe left** → snooze.
+  - **Tap** → open task details (with options to edit or delete).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 4. Home Screen
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Displays **tasks scheduled for the current day**.
+- Includes:
+  - **Dropdown** to filter tasks by location (or show all).
+  - **Date picker** to view tasks on future dates.
+  - **Undo button** (stores up to 10 past states; disabled when no actions remain).
+  - **Buttons at the top**:
+    - Add new task.
+    - Manage locations.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 5. Task Scheduling Rules
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- A task is considered **future** if:
+  - It is a monthly task.
+  - It is a weekly task.
+  - It is an interval task that was snoozed.
+- **Snoozing behavior**:
+  - Users can snooze tasks manually.
+  - Missed tasks are automatically snoozed.
+  - Snoozed tasks reappear the next day.
+- **Day start time**: 2:00 AM.
+- **Task ordering**:
+  - Snoozed tasks appear first.
+  - Older snoozed tasks appear before newer ones.
+  - Users can manually reorder tasks for the current day.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 6. Data Storage
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- All data is stored in **localStorage**:
+  - Tasks.
+  - Locations.
+  - Current task order.
+- **Validation**:
+  - Data is parsed with **Zod**.
+  - If no data exists, initial sample data is created.
+  - If data is invalid:
+    - It is pruned until it matches the schema.
+    - User sees an error screen explaining what was removed.
+    - User must click **“Continue”** to save the pruned data back to localStorage.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 7. State Management
+
+- Functional programming approach.
+- Maintain an **array of state history** for undo functionality (up to 10 actions).
