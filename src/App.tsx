@@ -980,13 +980,13 @@ function HomeView({
         isOpen={selectedTaskId !== null}
         onClose={() => setSelectedTaskId(null)}
         task={selectedTaskId ? state.tasks.find((t) => t.id === selectedTaskId) || null : null}
-        taskId={selectedTaskId}
-        state={state}
-        onEdit={(taskId) => {
-          setEditingTaskId(taskId)
-          setSelectedTaskId(null)
-        }}
-      />
+                 taskId={selectedTaskId}
+         state={state}
+         onEdit={(taskId) => {
+           setEditingTaskId(taskId)
+           setSelectedTaskId(null)
+         }}
+       />
 
       <TaskEditModal
         isOpen={editingTaskId !== null}
@@ -1017,6 +1017,7 @@ function ManageTasksView({
   setState: (s: State, action?: ActionType) => void
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
 
   return (
     <div className="manage-view">
@@ -1064,7 +1065,7 @@ function ManageTasksView({
                 </div>
               </div>
               <div className="item-actions">
-                <button className="btn btn-secondary btn-sm">Edit</button>
+                 <button className="btn btn-secondary btn-sm" onClick={() => setEditingTaskId(task.id)}>Edit</button>
                 <button
                   className="btn btn-danger btn-sm"
                   onClick={() => setState(deleteTask(state, task.id), "Delete task")}
@@ -1076,6 +1077,23 @@ function ManageTasksView({
           ))
         )}
       </div>
+       <TaskEditModal
+         isOpen={editingTaskId !== null}
+         onClose={() => setEditingTaskId(null)}
+         task={editingTaskId ? state.tasks.find((t) => t.id === editingTaskId) || null : null}
+         state={state}
+         onSubmit={(updatedTask) => {
+           const newTasks = state.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+           setState(
+             {
+               ...state,
+               tasks: newTasks,
+             },
+             "Edit task",
+           )
+           setEditingTaskId(null)
+         }}
+       />
     </div>
   )
 }
