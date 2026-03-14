@@ -588,14 +588,16 @@ function TaskDetailModal({
   isOpen,
   onClose,
   task,
+  taskId,
   state,
   onEdit,
 }: {
   isOpen: boolean
   onClose: () => void
   task: Task | null
+  taskId: string | null
   state: State
-  onEdit: () => void
+  onEdit: (taskId: string) => void
 }) {
   if (!task) return null
 
@@ -651,16 +653,18 @@ function TaskDetailModal({
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              onEdit()
-              onClose()
-            }}
-          >
-            Edit Task
-          </button>
+           <button
+             type="button"
+             className="btn btn-primary"
+             onClick={() => {
+               if (taskId) {
+                 onEdit(taskId)
+                 onClose()
+               }
+             }}
+           >
+             Edit Task
+           </button>
         </div>
       </div>
     </div>
@@ -710,7 +714,7 @@ function TaskEditModal({
   }
 
   return (
-    <div className={`modal-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
+    <div className={`modal-overlay ${isOpen ? "open" : ""}`} onClick={onClose} style={{ zIndex: isOpen ? 1000 : -1 }}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h2 style={{ marginTop: 0 }}>Edit Task</h2>
 
@@ -939,7 +943,6 @@ function HomeView({
             return (
               <DraggableDiv
                 key={task.id}
-                disabled={!isToday}
                 onClick={() => setSelectedTaskId(task.id)}
                 onDragged={() => {
                   setState(addTaskCompletion(state, task.id, new Date()), "Complete task")
@@ -977,10 +980,11 @@ function HomeView({
         isOpen={selectedTaskId !== null}
         onClose={() => setSelectedTaskId(null)}
         task={selectedTaskId ? state.tasks.find((t) => t.id === selectedTaskId) || null : null}
+        taskId={selectedTaskId}
         state={state}
-        onEdit={() => {
+        onEdit={(taskId) => {
+          setEditingTaskId(taskId)
           setSelectedTaskId(null)
-          setEditingTaskId(selectedTaskId)
         }}
       />
 
