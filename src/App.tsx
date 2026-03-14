@@ -108,7 +108,7 @@ const deleteLocation = (state: State, locationId: string): State => {
   }
 }
 
-type ActionType = 
+type ActionType =
   | "Add location"
   | "Add task"
   | "Complete task"
@@ -279,19 +279,17 @@ function DraggableDiv({
   )
 }
 
-function TaskFormModal(
-  {
-    isOpen,
-    onClose,
-    onSubmit,
-    state,
-  }: {
-    isOpen: boolean
-    onClose: () => void
-    onSubmit: (task: Task) => void
-    state: State
-  }
-) {
+function TaskFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  state,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onSubmit: (task: Task) => void
+  state: State
+}) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [selectedLocations, setSelectedLocations] = useState<string[]>([])
@@ -387,9 +385,7 @@ function TaskFormModal(
                     className={`location-option ${selectedLocations.includes(location.id) ? "selected" : ""}`}
                     onClick={() => {
                       if (selectedLocations.includes(location.id)) {
-                        setSelectedLocations((prev) =>
-                          prev.filter((id) => id !== location.id),
-                        )
+                        setSelectedLocations((prev) => prev.filter((id) => id !== location.id))
                       } else {
                         setSelectedLocations((prev) => [...prev, location.id])
                       }
@@ -655,10 +651,14 @@ function TaskDetailModal({
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => {
-            onEdit()
-            onClose()
-          }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              onEdit()
+              onClose()
+            }}
+          >
             Edit Task
           </button>
         </div>
@@ -697,14 +697,14 @@ function TaskEditModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     const updatedTask: Task = {
       ...task,
       name,
       description,
       locationIds: selectedLocations,
     }
-    
+
     onSubmit(updatedTask)
     onClose()
   }
@@ -744,7 +744,10 @@ function TaskEditModal({
             <label>Locations</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
               {state.locations.map((location) => (
-                <label key={location.id} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                <label
+                  key={location.id}
+                  style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+                >
                   <input
                     type="checkbox"
                     checked={selectedLocations.includes(location.id)}
@@ -776,13 +779,23 @@ function TaskEditModal({
   )
 }
 
-function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState: (s: State, action?: ActionType) => void; onUndo: () => void; canUndo: boolean }) {
+function HomeView({
+  state,
+  setState,
+  onUndo,
+  canUndo,
+}: {
+  state: State
+  setState: (s: State, action?: ActionType) => void
+  onUndo: () => void
+  canUndo: boolean
+}) {
   const [locationsIdsSelected, setLocationIdsSelected] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const tasksAtLocation = getTasksDueAtLocations(state, locationsIdsSelected, selectedDate)
-  
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const selectedDateAtMidnight = new Date(selectedDate)
@@ -804,35 +817,58 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
 
   const formatDate = (date: Date) => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ]
     return `${days[date.getDay()]} ${months[date.getMonth()]} ${date.getDate()}`
   }
 
   return (
     <div className="home-view">
       <div className="view-header">
-        <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "20px", justifyContent: "center" }}>
-          <button 
-            className="btn btn-secondary btn-sm" 
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+            marginBottom: "20px",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            className="btn btn-secondary btn-sm"
             onClick={goBack}
             disabled={!canGoBack}
             style={{ whiteSpace: "nowrap" }}
           >
             ← Prev
           </button>
-          <div style={{ minWidth: "120px", textAlign: "center", fontSize: "16px", fontWeight: "500" }}>
+          <div
+            style={{ minWidth: "120px", textAlign: "center", fontSize: "16px", fontWeight: "500" }}
+          >
             {formatDate(selectedDate)}
           </div>
-          <button 
-            className="btn btn-secondary btn-sm" 
+          <button
+            className="btn btn-secondary btn-sm"
             onClick={goForward}
             style={{ whiteSpace: "nowrap" }}
           >
             Next →
           </button>
-          <button 
-            className="btn btn-secondary btn-sm" 
-            onClick={onUndo} 
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onUndo}
             disabled={!canUndo}
             style={{ whiteSpace: "nowrap", marginLeft: "12px" }}
           >
@@ -868,8 +904,8 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
         {tasksAtLocation.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">✨</div>
-            <h3>{isToday ? 'All caught up!' : 'Nothing scheduled on this day'}</h3>
-            <p>You have no tasks for this day</p>
+            <h3>{isToday ? "All caught up!" : "Nothing scheduled on this day"}</h3>
+            <p>You have no tasks</p>
           </div>
         ) : (
           tasksAtLocation.map((task) => {
@@ -902,11 +938,7 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
                         })}
                       </>
                     )}
-                    {isSnoozed && (
-                      <span className="snoozed-indicator">
-                        💤 Snoozed
-                      </span>
-                    )}
+                    {isSnoozed && <span className="snoozed-indicator">💤 Snoozed</span>}
                   </div>
                 </div>
               </DraggableDiv>
@@ -933,10 +965,13 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
         state={state}
         onSubmit={(updatedTask) => {
           const newTasks = state.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
-          setState({
-            ...state,
-            tasks: newTasks,
-          }, "Edit task")
+          setState(
+            {
+              ...state,
+              tasks: newTasks,
+            },
+            "Edit task",
+          )
           setEditingTaskId(null)
         }}
       />
@@ -944,7 +979,13 @@ function HomeView({ state, setState, onUndo, canUndo }: { state: State; setState
   )
 }
 
-function ManageTasksView({ state, setState }: { state: State; setState: (s: State, action?: ActionType) => void }) {
+function ManageTasksView({
+  state,
+  setState,
+}: {
+  state: State
+  setState: (s: State, action?: ActionType) => void
+}) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
@@ -960,10 +1001,13 @@ function ManageTasksView({ state, setState }: { state: State; setState: (s: Stat
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={(task) => {
-          setState({
-            ...state,
-            tasks: [...state.tasks, task],
-          }, "Add task")
+          setState(
+            {
+              ...state,
+              tasks: [...state.tasks, task],
+            },
+            "Add task",
+          )
         }}
         state={state}
       />
@@ -1006,7 +1050,13 @@ function ManageTasksView({ state, setState }: { state: State; setState: (s: Stat
   )
 }
 
-function ManageLocationsView({ state, setState }: { state: State; setState: (s: State, action?: ActionType) => void }) {
+function ManageLocationsView({
+  state,
+  setState,
+}: {
+  state: State
+  setState: (s: State, action?: ActionType) => void
+}) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
@@ -1038,7 +1088,11 @@ function ManageLocationsView({ state, setState }: { state: State; setState: (s: 
             <div key={location.id} className="item-card">
               <div className="item-info">
                 <h3>{location.name}</h3>
-                {location.description && <p style={{ fontSize: "13px", color: "#666", margin: "4px 0 8px 0" }}>{location.description}</p>}
+                {location.description && (
+                  <p style={{ fontSize: "13px", color: "#666", margin: "4px 0 8px 0" }}>
+                    {location.description}
+                  </p>
+                )}
                 <p style={{ fontSize: "12px" }}>
                   {state.tasks.filter((t) => t.locationIds.includes(location.id)).length} tasks
                 </p>
@@ -1115,7 +1169,7 @@ function App() {
       _setState(previousState)
       setStateHistory((prev) => prev.slice(0, -1))
       setActionHistory((prev) => prev.slice(0, -1))
-      
+
       if (lastAction) {
         setToastMessage(`Undone: ${lastAction}`)
         setShowToast(true)
@@ -1148,7 +1202,14 @@ function App() {
   const meat = (() => {
     switch (view) {
       case "home":
-        return <HomeView state={state} setState={setState} onUndo={handleUndo} canUndo={stateHistory.length > 0} />
+        return (
+          <HomeView
+            state={state}
+            setState={setState}
+            onUndo={handleUndo}
+            canUndo={stateHistory.length > 0}
+          />
+        )
       case "manage-tasks":
         return <ManageTasksView state={state} setState={setState} />
       case "manage-locations":
@@ -1158,15 +1219,10 @@ function App() {
 
   return (
     <div className="app-container">
-      <div className="app-content">
-        {meat}
-      </div>
+      <div className="app-content">{meat}</div>
 
       <nav className="app-nav">
-        <button
-          className={view === "home" ? "active" : ""}
-          onClick={() => setView("home")}
-        >
+        <button className={view === "home" ? "active" : ""} onClick={() => setView("home")}>
           🏠 Home
         </button>
         <button
