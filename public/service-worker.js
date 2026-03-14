@@ -36,30 +36,53 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Return cached response if available
-      if (response) {
-        return response;
-      }
+  const url = new URL(event.request.url);
+  const isHtmlRequest = event.request.destination === 'document' || url.pathname === '/' || url.pathname === '/index.html';
 
-      // Otherwise fetch from network and cache it
-      return fetch(event.request).then((response) => {
-        // Don't cache non-successful responses
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+  if (isHtmlRequest) {
+    // Network-first for HTML: always try to get latest version
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        // Cache successful responses
+        if (response && response.status === 200) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      }).catch(() => {
+        // Fall back to cache if network fails
+        return caches.match(event.request);
+      })
+    );
+  } else {
+    // Cache-first for assets: use cached version, update in background
+    event.respondWith(
+      caches.match(event.request).then((response) => {
+        // Return cached response if available
+        if (response) {
           return response;
         }
 
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        // Otherwise fetch from network and cache it
+        return fetch(event.request).then((response) => {
+          // Don't cache non-successful responses
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
 
-        return response;
-      }).catch(() => {
-        // Return a fallback response or cached version if network fails
-        return caches.match(event.request);
-      });
-    })
-  );
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+
+          return response;
+        }).catch(() => {
+          // Return cached version if network fails
+          return caches.match(event.request);
+        });
+      })
+    );
+  }
 });
