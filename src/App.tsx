@@ -870,7 +870,16 @@ function HomeView({
             className="btn btn-secondary btn-sm"
             onClick={onUndo}
             disabled={!canUndo}
-            style={{ marginLeft: "12px", padding: "6px", fontSize: "16px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{
+              marginLeft: "12px",
+              padding: "6px",
+              fontSize: "16px",
+              width: "34px",
+              height: "34px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
             title="Undo last action"
           >
             ↶
@@ -878,7 +887,16 @@ function HomeView({
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => window.location.reload()}
-            style={{ marginLeft: "8px", padding: "6px", fontSize: "16px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{
+              marginLeft: "8px",
+              padding: "6px",
+              fontSize: "16px",
+              width: "34px",
+              height: "34px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
             title="Reload to get the latest version"
           >
             ↻
@@ -913,7 +931,7 @@ function HomeView({
         {tasksAtLocation.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">✨</div>
-            <h3>{isToday ? "All caught up" : "Nothing scheduled on this day"}</h3>
+            <h3>{isToday ? "All done" : "Nothing scheduled on this day"}</h3>
           </div>
         ) : (
           tasksAtLocation.map((task) => {
