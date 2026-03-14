@@ -904,7 +904,7 @@ function HomeView({
         {tasksAtLocation.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">✨</div>
-            <h3>{isToday ? "All caught up!" : "Nothing scheduled on this day"}</h3>
+            <h3>{isToday ? "All caught up" : "Nothing scheduled on this day"}</h3>
           </div>
         ) : (
           tasksAtLocation.map((task) => {
