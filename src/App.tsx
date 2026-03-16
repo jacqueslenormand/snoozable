@@ -690,6 +690,18 @@ function TaskEditModal({
   const [name, setName] = useState(task?.name || "")
   const [description, setDescription] = useState(task?.description || "")
   const [selectedLocations, setSelectedLocations] = useState<string[]>(task?.locationIds || [])
+  const [scheduleType, setScheduleType] = useState<"interval" | "weekly" | "monthly">(
+    task?.schedule.t ?? "interval",
+  )
+  const [intervalDays, setIntervalDays] = useState(
+    task?.schedule.t === "interval" ? String(task.schedule.intervalInDays) : "1",
+  )
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(
+    task?.schedule.t === "weekly" ? task.schedule.daysOfWeek : [],
+  )
+  const [dayOfMonth, setDayOfMonth] = useState(
+    task?.schedule.t === "monthly" ? String(task.schedule.dayOfMonth) : "1",
+  )
 
   // Update state when task prop changes
   useEffect(() => {
@@ -697,6 +709,10 @@ function TaskEditModal({
       setName(task.name)
       setDescription(task.description)
       setSelectedLocations(task.locationIds)
+      setScheduleType(task.schedule.t)
+      setIntervalDays(task.schedule.t === "interval" ? String(task.schedule.intervalInDays) : "1")
+      setDaysOfWeek(task.schedule.t === "weekly" ? task.schedule.daysOfWeek : [])
+      setDayOfMonth(task.schedule.t === "monthly" ? String(task.schedule.dayOfMonth) : "1")
     }
   }, [task])
 
@@ -705,14 +721,20 @@ function TaskEditModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const updatedTask: Task = {
-      ...task,
-      name,
-      description,
-      locationIds: selectedLocations,
+    let schedule: Task["schedule"]
+    if (scheduleType === "interval") {
+      schedule = { t: "interval", intervalInDays: parseInt(intervalDays) || 1 }
+    } else if (scheduleType === "weekly") {
+      if (daysOfWeek.length === 0) {
+        alert("Please select at least one day of the week")
+        return
+      }
+      schedule = { t: "weekly", daysOfWeek: daysOfWeek.sort() }
+    } else {
+      schedule = { t: "monthly", dayOfMonth: Math.min(28, Math.max(1, parseInt(dayOfMonth) || 1)) }
     }
 
-    onSubmit(updatedTask)
+    onSubmit({ ...task, name, description, locationIds: selectedLocations, schedule })
     onClose()
   }
 
@@ -769,6 +791,102 @@ function TaskEditModal({
                   {location.name}
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>🔄 Schedule</label>
+            <div className="schedule-options">
+              <button
+                type="button"
+                className={`schedule-option ${scheduleType === "interval" ? "active" : ""}`}
+                onClick={() => setScheduleType("interval")}
+              >
+                Interval
+              </button>
+              <button
+                type="button"
+                className={`schedule-option ${scheduleType === "weekly" ? "active" : ""}`}
+                onClick={() => setScheduleType("weekly")}
+              >
+                Weekly
+              </button>
+              <button
+                type="button"
+                className={`schedule-option ${scheduleType === "monthly" ? "active" : ""}`}
+                onClick={() => setScheduleType("monthly")}
+              >
+                Monthly
+              </button>
+            </div>
+
+            <div className="schedule-details">
+              {scheduleType === "interval" && (
+                <div className="form-group">
+                  <label>Interval between (days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={intervalDays}
+                    onChange={(e) => setIntervalDays(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {scheduleType === "weekly" && (
+                <div className="form-group">
+                  <label>Days of the week</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-around",
+                      gap: "8px",
+                      padding: "12px",
+                      background: "white",
+                    }}
+                  >
+                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day, idx) => (
+                      <label
+                        key={idx}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "4px",
+                          flex: 1,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={daysOfWeek.includes(idx)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDaysOfWeek((prev) => [...prev, idx])
+                            } else {
+                              setDaysOfWeek((prev) => prev.filter((d) => d !== idx))
+                            }
+                          }}
+                        />
+                        <span style={{ fontSize: "12px", color: "#666" }}>{day}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {scheduleType === "monthly" && (
+                <div className="form-group">
+                  <label>Day of the month (1-28)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={dayOfMonth}
+                    onChange={(e) => setDayOfMonth(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1062,7 +1180,8 @@ function ManageTasksView({
                 <div style={{ marginTop: "8px", fontSize: "12px", color: "#999" }}>
                   {(() => {
                     const lastCompleted = state.mostRecentTaskCompletions[task.id]
-                    const lastSnoozed = state.snoozedTasks[task.id]
+                    const lastSnoozedTs = state.snoozedTasks[task.id]
+                    const lastSnoozed = lastSnoozedTs !== undefined ? dayOfDate(new Date(lastSnoozedTs)) : undefined
                     const nextDayNum = getNextScheduledDayNumber(task, lastCompleted, lastSnoozed)
                     const nextLabel = formatNextScheduledDay(nextDayNum)
                     const freqLabel =
