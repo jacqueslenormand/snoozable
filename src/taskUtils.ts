@@ -98,17 +98,8 @@ export const isTaskDueOnDay = (
 ): boolean => {
   const now = dayOfDate(new Date())
 
-  // Snooze is a one-day override: show on the day after snooze
-  if (lastSnoozedDay !== undefined) {
-    const snoozedForThisDay = dayOfDateValue === lastSnoozedDay + 1
-    if (snoozedForThisDay) {
-      return true
-    }
-    // If we're past the snooze day, continue to regular schedule
-    // If we're on the snooze day itself, don't show
-    if (dayOfDateValue === lastSnoozedDay) {
-      return false
-    }
+  if (lastSnoozedDay !== undefined && dayOfDateValue === lastSnoozedDay) {
+    return false
   }
 
   if (task.schedule.t === "interval") {

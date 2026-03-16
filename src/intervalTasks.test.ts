@@ -79,7 +79,7 @@ describe("Interval Task Visibility", () => {
     }
   })
 
-  it("should show snoozed task only on the next day", () => {
+  it("should hide snoozed task only on the snooze day", () => {
     const task: Task = {
       id: "task3",
       name: "Snoozed Task",
@@ -97,7 +97,7 @@ describe("Interval Task Visibility", () => {
 
     const testCases = [
       { date: "2026-03-14T00:00:00Z", shouldShow: false, day: "March 14 (snooze day)" },
-      { date: "2026-03-15T00:00:00Z", shouldShow: true, day: "March 15 (next day)" },
+      { date: "2026-03-15T00:00:00Z", shouldShow: false, day: "March 15 (snooze ignored, normal schedule)" },
       { date: "2026-03-16T00:00:00Z", shouldShow: false, day: "March 16" },
     ]
 
@@ -109,7 +109,7 @@ describe("Interval Task Visibility", () => {
     }
   })
 
-  it("should prefer snooze over completion when both exist", () => {
+  it("should hide on snooze day, then follow normal schedule", () => {
     const task: Task = {
       id: "task4",
       name: "Completed and Snoozed Task",
@@ -131,7 +131,7 @@ describe("Interval Task Visibility", () => {
 
     const testCases = [
       { date: "2026-03-13T00:00:00Z", shouldShow: false, day: "March 13" },
-      { date: "2026-03-15T00:00:00Z", shouldShow: true, day: "March 15 (next day after snooze)" },
+      { date: "2026-03-15T00:00:00Z", shouldShow: false, day: "March 15 (snooze ignored, schedule-based)" },
       { date: "2026-03-16T00:00:00Z", shouldShow: false, day: "March 16" },
     ]
 
