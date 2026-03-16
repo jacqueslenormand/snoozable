@@ -104,6 +104,10 @@ export const isTaskDueOnDay = (
       return lastSnoozedDay !== dayOfDateValue
     }
     if (dayOfDateValue === lastSnoozedDay + 1) return true
+
+    if (task.schedule.t === "interval") {
+      return false
+    }
   }
 
   if (task.schedule.t === "interval") {
