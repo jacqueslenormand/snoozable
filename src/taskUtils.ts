@@ -120,9 +120,12 @@ export const isTaskDueOnDay = (
     }
 
     if (lastCompletedDay !== -Infinity) {
-      // Completed - show on specific day only, and only if that day is today or in the future
+      // Completed - show on scheduled day, or today if overdue
       const showDay = lastCompletedDay + task.schedule.intervalInDays
-      return dayOfDateValue === showDay && dayOfDateValue >= now
+      if (showDay <= now) {
+        return dayOfDateValue === now
+      }
+      return dayOfDateValue === showDay
     }
 
     return false
