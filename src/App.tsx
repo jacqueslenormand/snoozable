@@ -71,9 +71,12 @@ const addLocation = (state: State, location: Location): State => {
 }
 
 const addTaskCompletion = (state: State, taskId: string, asof: Date): State => {
+  const snoozedTasks = { ...state.snoozedTasks }
+  delete snoozedTasks[taskId]
   return {
     ...state,
     mostRecentTaskCompletions: { ...state.mostRecentTaskCompletions, [taskId]: asof.getTime() },
+    snoozedTasks,
   }
 }
 
