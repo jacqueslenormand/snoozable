@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import * as z from "zod"
-import { isTaskDueOnDay, dayOfDate } from "./taskUtils"
+import { isTaskDueOnDay, dayOfDate, getNextScheduledDayNumber, formatNextScheduledDay } from "./taskUtils"
 import "./App.css"
 
 const locationSchema = z.object({
@@ -1057,11 +1057,19 @@ function ManageTasksView({
                 <h3>{task.name}</h3>
                 {task.description && <p>{task.description}</p>}
                 <div style={{ marginTop: "8px", fontSize: "12px", color: "#999" }}>
-                  {task.schedule.t === "interval"
-                    ? `Every ${task.schedule.intervalInDays} day(s)`
-                    : task.schedule.t === "weekly"
-                      ? "Weekly"
-                      : "Monthly"}
+                  {(() => {
+                    const lastCompleted = state.mostRecentTaskCompletions[task.id]
+                    const lastSnoozed = state.snoozedTasks[task.id]
+                    const nextDayNum = getNextScheduledDayNumber(task, lastCompleted, lastSnoozed)
+                    const nextLabel = formatNextScheduledDay(nextDayNum)
+                    const freqLabel =
+                      task.schedule.t === "interval"
+                        ? `Every ${task.schedule.intervalInDays} day(s)`
+                        : task.schedule.t === "weekly"
+                          ? "Weekly"
+                          : "Monthly"
+                    return `${freqLabel} · Next: ${nextLabel}`
+                  })()}
                 </div>
               </div>
               <div className="item-actions">

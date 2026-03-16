@@ -37,6 +37,57 @@ export function dayOfDate(date: Date): number {
   return Math.floor(date.getTime() / (1000 * 60 * 60 * 24))
 }
 
+export function getNextScheduledDayNumber(
+  task: Task,
+  lastCompletedTime: number | undefined,
+  lastSnoozedDay: number | undefined,
+): number {
+  const today = dayOfDate(new Date())
+
+  if (lastSnoozedDay !== undefined) {
+    const snoozedNextDay = lastSnoozedDay + 1
+    if (snoozedNextDay >= today) {
+      return snoozedNextDay
+    }
+  }
+
+  if (task.schedule.t === "interval") {
+    if (!lastCompletedTime) return today
+    const lastCompletedDay = dayOfDate(new Date(lastCompletedTime))
+    return lastCompletedDay + task.schedule.intervalInDays
+  }
+
+  if (task.schedule.t === "weekly") {
+    const dayOfWeek = new Date().getDay()
+    let minDiff = 7
+    for (const d of task.schedule.daysOfWeek) {
+      const diff = (d - dayOfWeek + 7) % 7
+      if (diff < minDiff) minDiff = diff
+    }
+    return today + minDiff
+  }
+
+  if (task.schedule.t === "monthly") {
+    const now = new Date()
+    const { dayOfMonth } = task.schedule
+    if (dayOfMonth >= now.getDate()) {
+      return dayOfDate(new Date(now.getFullYear(), now.getMonth(), dayOfMonth))
+    }
+    return dayOfDate(new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth))
+  }
+
+  return today
+}
+
+export function formatNextScheduledDay(dayNum: number): string {
+  const today = dayOfDate(new Date())
+  const diff = dayNum - today
+  if (diff <= 0) return "Today"
+  if (diff === 1) return "Tomorrow"
+  const date = new Date(dayNum * 24 * 60 * 60 * 1000)
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+}
+
 export const isTaskDueOnDay = (
   task: Task,
   dayOfDateValue: number,
