@@ -161,7 +161,8 @@ const getTasksDueAtLocations = (state: State, locationIds: string[], asof: Date)
       ? dayOfDate(new Date(state.snoozedTasks[task.id]))
       : undefined
 
-    if (isTaskDueOnDay(task, dayOfDateValue, lastCompleted, lastSnoozedDay, asof)) {
+    const asofIsToday = dayOfDateValue === dayOfDate(new Date())
+    if (isTaskDueOnDay(task, dayOfDateValue, lastCompleted, lastSnoozedDay, asof, asofIsToday)) {
       tasksDue.push(task)
     }
   }

@@ -43,7 +43,7 @@ describe("Interval Task Visibility", () => {
     for (const testCase of testCases) {
       const testDate = new Date(testCase.date)
       const dayNum = dayOfDate(testDate)
-      const isDue = isTaskDueOnDay(task, dayNum, completionTime, undefined, testDate)
+      const isDue = isTaskDueOnDay(task, dayNum, completionTime, undefined, testDate, dayOfDate(testDate) === dayOfDate(new Date()))
       expect(isDue, `${testCase.day} should ${testCase.shouldShow ? "show" : "not show"}`).toBe(testCase.shouldShow)
     }
   })
@@ -74,7 +74,7 @@ describe("Interval Task Visibility", () => {
     for (const testCase of testCases) {
       const testDate = new Date(testCase.date)
       const dayNum = dayOfDate(testDate)
-      const isDue = isTaskDueOnDay(task, dayNum, completionTime, undefined, testDate)
+      const isDue = isTaskDueOnDay(task, dayNum, completionTime, undefined, testDate, dayOfDate(testDate) === dayOfDate(new Date()))
       expect(isDue, `${testCase.day} should ${testCase.shouldShow ? "show" : "not show"}`).toBe(testCase.shouldShow)
     }
   })
@@ -104,7 +104,7 @@ describe("Interval Task Visibility", () => {
     for (const testCase of testCases) {
       const testDate = new Date(testCase.date)
       const dayNum = dayOfDate(testDate)
-      const isDue = isTaskDueOnDay(task, dayNum, undefined, snoozeDayNum, testDate)
+      const isDue = isTaskDueOnDay(task, dayNum, undefined, snoozeDayNum, testDate, dayOfDate(testDate) === dayOfDate(new Date()))
       expect(isDue, `${testCase.day} should ${testCase.shouldShow ? "show" : "not show"}`).toBe(testCase.shouldShow)
     }
   })
@@ -138,7 +138,7 @@ describe("Interval Task Visibility", () => {
     for (const testCase of testCases) {
       const testDate = new Date(testCase.date)
       const dayNum = dayOfDate(testDate)
-      const isDue = isTaskDueOnDay(task, dayNum, completionTime, snoozeDayNum, testDate)
+      const isDue = isTaskDueOnDay(task, dayNum, completionTime, snoozeDayNum, testDate, dayOfDate(testDate) === dayOfDate(new Date()))
       expect(isDue, `${testCase.day} should ${testCase.shouldShow ? "show" : "not show"}`).toBe(testCase.shouldShow)
     }
   })
@@ -162,13 +162,13 @@ describe("Interval Task Visibility", () => {
     const testCases = [
       { date: "2026-03-12T00:00:00Z", shouldShow: false, day: "March 12 (completion day)" },
       { date: "2026-03-13T00:00:00Z", shouldShow: false, day: "March 13 (in the past)" },
-      { date: "2026-03-14T00:00:00Z", shouldShow: false, day: "March 14 (today, but past show day)" },
+      { date: "2026-03-14T00:00:00Z", shouldShow: true, day: "March 14 (today, overdue task surfaces today)" },
     ]
 
     for (const testCase of testCases) {
       const testDate = new Date(testCase.date)
       const dayNum = dayOfDate(testDate)
-      const isDue = isTaskDueOnDay(task, dayNum, completionTime, undefined, testDate)
+      const isDue = isTaskDueOnDay(task, dayNum, completionTime, undefined, testDate, dayOfDate(testDate) === dayOfDate(new Date()))
       expect(isDue, `${testCase.day} should not show`).toBe(testCase.shouldShow)
     }
   })
@@ -197,7 +197,7 @@ describe("Interval Task Visibility", () => {
 
     const daysTaskIsShown = daysToCheck.filter((date) => {
       const dayNum = dayOfDate(date)
-      return isTaskDueOnDay(task, dayNum, completionTime, undefined, date)
+      return isTaskDueOnDay(task, dayNum, completionTime, undefined, date, dayOfDate(date) === dayOfDate(new Date()))
     })
 
     // Should appear on exactly one day
@@ -229,7 +229,7 @@ describe("Interval Task Visibility", () => {
     for (const testCase of testCases) {
       const testDate = new Date(testCase.date)
       const dayNum = dayOfDate(testDate)
-      const isDue = isTaskDueOnDay(task, dayNum, undefined, undefined, testDate)
+      const isDue = isTaskDueOnDay(task, dayNum, undefined, undefined, testDate, dayOfDate(testDate) === dayOfDate(new Date()))
       expect(isDue, `${testCase.day} should ${testCase.shouldShow ? "show" : "not show"}`).toBe(testCase.shouldShow)
     }
   })

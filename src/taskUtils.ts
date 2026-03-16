@@ -94,6 +94,7 @@ export const isTaskDueOnDay = (
   lastCompletedTime: number | undefined,
   lastSnoozedDay: number | undefined,
   asof: Date,
+  asofIsToday: boolean,
 ): boolean => {
   const now = dayOfDate(new Date())
 
@@ -111,21 +112,22 @@ export const isTaskDueOnDay = (
   }
 
   if (task.schedule.t === "interval") {
-    // Determine which action is most recent
     const lastCompletedDay = lastCompletedTime ? dayOfDate(new Date(lastCompletedTime)) : -Infinity
 
     if (!lastCompletedTime) {
-      // Never completed - due today (snooze may have expired, but task was never done)
-      return dayOfDateValue === now
+      // Never completed - only due when checking today
+      return asofIsToday
     }
 
     if (lastCompletedDay !== -Infinity) {
-      // Completed - show on scheduled day, or today if overdue
       const showDay = lastCompletedDay + task.schedule.intervalInDays
-      if (showDay <= now) {
-        return dayOfDateValue === now
+      if (asofIsToday) {
+        // Show if scheduled for today or overdue
+        return showDay <= dayOfDateValue
+      } else {
+        // Show only on exact scheduled day, and only if it's in the future
+        return dayOfDateValue === showDay && dayOfDateValue > now
       }
-      return dayOfDateValue === showDay
     }
 
     return false
