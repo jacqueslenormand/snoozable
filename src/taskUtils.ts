@@ -114,8 +114,8 @@ export const isTaskDueOnDay = (
     // Determine which action is most recent
     const lastCompletedDay = lastCompletedTime ? dayOfDate(new Date(lastCompletedTime)) : -Infinity
 
-    if (!lastCompletedTime && lastSnoozedDay === undefined) {
-      // Never completed or snoozed, due only today
+    if (!lastCompletedTime) {
+      // Never completed - due today (snooze may have expired, but task was never done)
       return dayOfDateValue === now
     }
 
