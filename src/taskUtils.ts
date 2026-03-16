@@ -98,8 +98,12 @@ export const isTaskDueOnDay = (
 ): boolean => {
   const now = dayOfDate(new Date())
 
-  if (lastSnoozedDay !== undefined && dayOfDateValue === lastSnoozedDay) {
-    return false
+  if (lastSnoozedDay !== undefined) {
+    if (asofIsToday) {
+      // snoozeDay is always <= today; hide if snoozed today, show if snoozed before today
+      return lastSnoozedDay !== dayOfDateValue
+    }
+    if (dayOfDateValue === lastSnoozedDay + 1) return true
   }
 
   if (task.schedule.t === "interval") {
