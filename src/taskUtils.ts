@@ -70,7 +70,7 @@ export const isTaskDueOnDay = (
 
     if (lastCompletedDay !== -Infinity) {
       // Completed - show on specific day only, and only if that day is today or in the future
-      const showDay = lastCompletedDay + task.schedule.intervalInDays + 1
+      const showDay = lastCompletedDay + task.schedule.intervalInDays
       return dayOfDateValue === showDay && dayOfDateValue >= now
     }
 

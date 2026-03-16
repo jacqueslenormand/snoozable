@@ -24,7 +24,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 0, // Daily
+        intervalInDays: 1, // Daily
       },
     }
 
@@ -56,7 +56,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 1, // Every 2 days
+        intervalInDays: 2, // Every 2 days
       },
     }
 
@@ -87,7 +87,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 0,
+        intervalInDays: 1,
       },
     }
 
@@ -117,7 +117,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 0,
+        intervalInDays: 1,
       },
     }
 
@@ -151,7 +151,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 0,
+        intervalInDays: 1,
       },
     }
 
@@ -181,7 +181,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 0,
+        intervalInDays: 1,
       },
     }
 
@@ -214,7 +214,7 @@ describe("Interval Task Visibility", () => {
       locationIds: [],
       schedule: {
         t: "interval",
-        intervalInDays: 0,
+        intervalInDays: 1,
       },
     }
 

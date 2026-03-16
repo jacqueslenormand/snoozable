@@ -294,7 +294,7 @@ function TaskFormModal({
   const [description, setDescription] = useState("")
   const [selectedLocations, setSelectedLocations] = useState<string[]>([])
   const [scheduleType, setScheduleType] = useState<"interval" | "weekly" | "monthly">("interval")
-  const [intervalDays, setIntervalDays] = useState("0")
+  const [intervalDays, setIntervalDays] = useState("1")
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([])
   const [dayOfMonth, setDayOfMonth] = useState("1")
 
@@ -310,7 +310,7 @@ function TaskFormModal({
     if (scheduleType === "interval") {
       schedule = {
         t: "interval",
-        intervalInDays: parseInt(intervalDays) || 0,
+        intervalInDays: parseInt(intervalDays) || 1,
       }
     } else if (scheduleType === "weekly") {
       if (daysOfWeek.length === 0) {
@@ -335,7 +335,7 @@ function TaskFormModal({
     setDescription("")
     setSelectedLocations([])
     setScheduleType("interval")
-    setIntervalDays("0")
+    setIntervalDays("1")
     setDaysOfWeek([])
     setDayOfMonth("1")
     onClose()
@@ -430,7 +430,7 @@ function TaskFormModal({
                   <label>Interval between (days)</label>
                   <input
                     type="number"
-                    min="0"
+                    min="1"
                     max="365"
                     value={intervalDays}
                     onChange={(e) => setIntervalDays(e.target.value)}
@@ -603,7 +603,7 @@ function TaskDetailModal({
 
   const getScheduleText = () => {
     if (task.schedule.t === "interval") {
-      return `Every ${task.schedule.intervalInDays === 0 ? "day" : `${task.schedule.intervalInDays + 1} days`}`
+      return `Every ${task.schedule.intervalInDays === 1 ? "day" : `${task.schedule.intervalInDays} days`}`
     }
     if (task.schedule.t === "weekly") {
       const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
