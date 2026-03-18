@@ -1207,7 +1207,7 @@ function ManageTasksView({
                     return (
                       <>
                         {`${freqLabel} · Next: ${nextLabel}`}
-                        {lastActivityLabel && <span style={{ marginLeft: "8px", opacity: 0.75 }}>· {lastActivityLabel}</span>}
+                        {lastActivityLabel && <div style={{ marginTop: "2px", opacity: 0.75 }}>{lastActivityLabel}</div>}
                       </>
                     )
                   })()}
