@@ -1191,7 +1191,25 @@ function ManageTasksView({
                         : task.schedule.t === "weekly"
                           ? "Weekly"
                           : "Monthly"
-                    return `${freqLabel} · Next: ${nextLabel}`
+
+                    const lastActivityTs =
+                      lastCompleted !== undefined && lastSnoozedTs !== undefined
+                        ? Math.max(lastCompleted, lastSnoozedTs)
+                        : lastCompleted ?? lastSnoozedTs
+                    const lastActivityLabel = (() => {
+                      if (lastActivityTs === undefined) return null
+                      const isSnooze = lastSnoozedTs !== undefined && lastActivityTs === lastSnoozedTs && lastActivityTs !== lastCompleted
+                      const date = new Date(lastActivityTs)
+                      const formatted = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      return `${isSnooze ? "Snoozed" : "Last done"}: ${formatted}`
+                    })()
+
+                    return (
+                      <>
+                        {`${freqLabel} · Next: ${nextLabel}`}
+                        {lastActivityLabel && <span style={{ marginLeft: "8px", opacity: 0.75 }}>· {lastActivityLabel}</span>}
+                      </>
+                    )
                   })()}
                 </div>
               </div>
