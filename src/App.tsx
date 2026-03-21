@@ -214,12 +214,14 @@ function DraggableDiv({
   onDragged,
   onSwipeLeft,
   disabled = false,
+  swipeLeftDisabled = false,
   onClick,
 }: {
   children: React.ReactNode
   onDragged: (event: React.TouchEvent<HTMLDivElement>) => void
   onSwipeLeft: (event: React.TouchEvent<HTMLDivElement>) => void
   disabled?: boolean
+  swipeLeftDisabled?: boolean
   onClick?: () => void
 }) {
   const [state, setStatus] = useState<{ t: "idle" } | { t: "dragging"; startX: number }>({
@@ -250,7 +252,7 @@ function DraggableDiv({
           if (deltaX > 30) {
             onDragged(ev as any)
           }
-          if (deltaX < -30) {
+          if (deltaX < -30 && !swipeLeftDisabled) {
             onSwipeLeft(ev as any)
           }
         } else if (state.t === "dragging" && dragDelta === 0 && onClick) {
@@ -274,7 +276,7 @@ function DraggableDiv({
     >
       {state.t === "dragging" && !disabled && (
         <div className="task-card-hint">
-          <span className="task-card-hint-left">← Snooze</span>
+          {!swipeLeftDisabled && <span className="task-card-hint-left">← Snooze</span>}
           <span className="task-card-hint-right">Complete →</span>
         </div>
       )}
@@ -926,8 +928,8 @@ function HomeView({
   today.setHours(0, 0, 0, 0)
   const selectedDateAtMidnight = new Date(selectedDate)
   selectedDateAtMidnight.setHours(0, 0, 0, 0)
-  const canGoBack = selectedDateAtMidnight > today
   const isToday = selectedDate.toDateString() === today.toDateString()
+  const isPast = selectedDateAtMidnight < today
 
   const goBack = () => {
     const newDate = new Date(selectedDate)
@@ -975,7 +977,6 @@ function HomeView({
           <button
             className="btn btn-secondary btn-sm"
             onClick={goBack}
-            disabled={!canGoBack}
             style={{ whiteSpace: "nowrap" }}
           >
             ← Prev
@@ -1067,11 +1068,12 @@ function HomeView({
                 key={task.id}
                 onClick={() => setSelectedTaskId(task.id)}
                 onDragged={() => {
-                  setState(addTaskCompletion(state, task.id, new Date()), "Complete task")
+                  setState(addTaskCompletion(state, task.id, isPast ? selectedDate : new Date()), "Complete task")
                 }}
                 onSwipeLeft={() => {
                   setState(snoozeTask(state, task.id, new Date()), "Snooze task")
                 }}
+                swipeLeftDisabled={isPast}
               >
                 <div className="task-card-content">
                   <div className="task-name">{task.name}</div>

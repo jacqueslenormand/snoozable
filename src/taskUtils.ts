@@ -97,8 +97,11 @@ export const isTaskDueOnDay = (
   asofIsToday: boolean,
 ): boolean => {
   const now = dayOfDate(new Date())
+  const isPast = dayOfDateValue < now
 
-  if (lastSnoozedDay !== undefined) {
+  // Only apply snooze logic if the snooze happened on or before the viewed day.
+  // If snoozed on a future day relative to the viewed day, ignore the snooze.
+  if (lastSnoozedDay !== undefined && lastSnoozedDay <= dayOfDateValue) {
     if (asofIsToday) {
       // snoozeDay is always <= today; hide if snoozed today, show if snoozed before today
       return lastSnoozedDay !== dayOfDateValue
@@ -114,18 +117,18 @@ export const isTaskDueOnDay = (
     const lastCompletedDay = lastCompletedTime ? dayOfDate(new Date(lastCompletedTime)) : -Infinity
 
     if (!lastCompletedTime) {
-      // Never completed - only due when checking today
-      return asofIsToday
+      // Never completed - due on today and all past days
+      return dayOfDateValue <= now
     }
 
     if (lastCompletedDay !== -Infinity) {
       const showDay = lastCompletedDay + task.schedule.intervalInDays
-      if (asofIsToday) {
-        // Show if scheduled for today or overdue
+      if (asofIsToday || isPast) {
+        // Today or past: show if scheduled for this day or overdue relative to it
         return showDay <= dayOfDateValue
       } else {
-        // Show only on exact scheduled day, and only if it's in the future
-        return dayOfDateValue === showDay && dayOfDateValue > now
+        // Future: show only on exact scheduled day
+        return dayOfDateValue === showDay
       }
     }
 

@@ -130,7 +130,7 @@ describe("Interval Task Visibility", () => {
     const snoozeDayNum = dayOfDate(snoozeDate)
 
     const testCases = [
-      { date: "2026-03-13T00:00:00Z", shouldShow: false, day: "March 13" },
+      { date: "2026-03-13T00:00:00Z", shouldShow: true, day: "March 13 (past, task was due here; snooze on March 14 doesn't affect it)" },
       { date: "2026-03-15T00:00:00Z", shouldShow: true, day: "March 15 (day after snooze)" },
       { date: "2026-03-16T00:00:00Z", shouldShow: false, day: "March 16" },
     ]
@@ -143,7 +143,7 @@ describe("Interval Task Visibility", () => {
     }
   })
 
-  it("should not show completed tasks in the past", () => {
+  it("should show completed task on past days when it was due there", () => {
     const task: Task = {
       id: "task5",
       name: "Past Task",
@@ -161,7 +161,7 @@ describe("Interval Task Visibility", () => {
 
     const testCases = [
       { date: "2026-03-12T00:00:00Z", shouldShow: false, day: "March 12 (completion day)" },
-      { date: "2026-03-13T00:00:00Z", shouldShow: false, day: "March 13 (in the past)" },
+      { date: "2026-03-13T00:00:00Z", shouldShow: true, day: "March 13 (past, task was due here)" },
       { date: "2026-03-14T00:00:00Z", shouldShow: true, day: "March 14 (today, overdue task surfaces today)" },
     ]
 
@@ -206,7 +206,7 @@ describe("Interval Task Visibility", () => {
     expect(daysTaskIsShown[0].toISOString().split("T")[0]).toBe("2026-03-15")
   })
 
-  it("should show uncompleted task only on today", () => {
+  it("should show uncompleted task on today and past days", () => {
     const task: Task = {
       id: "task7",
       name: "Uncompleted Task",
@@ -220,7 +220,7 @@ describe("Interval Task Visibility", () => {
 
     // Never completed or snoozed
     const testCases = [
-      { date: "2026-03-13T00:00:00Z", shouldShow: false, day: "March 13 (past)" },
+      { date: "2026-03-13T00:00:00Z", shouldShow: true, day: "March 13 (past)" },
       { date: "2026-03-14T00:00:00Z", shouldShow: true, day: "March 14 (today)" },
       { date: "2026-03-15T00:00:00Z", shouldShow: false, day: "March 15 (future)" },
       { date: "2026-03-16T00:00:00Z", shouldShow: false, day: "March 16 (future)" },
