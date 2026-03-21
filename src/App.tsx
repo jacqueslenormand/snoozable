@@ -253,74 +253,110 @@ function DraggableDiv({
   onClick?: () => void
   className?: string
 }) {
-  const [state, setStatus] = useState<
-    | { t: "idle" }
-    | { t: "tracking"; startX: number; startY: number }
-    | { t: "dragging"; startX: number }
-  >({ t: "idle" })
-  const [dragDelta, setDragDelta] = useState(0)
+  // Gesture phase is tracked in a ref — always current, no stale-closure bugs across
+  // rapid touchmove events that fire before React re-renders.
+  const gestureRef = useRef<
+    | { phase: "idle" }
+    | { phase: "tracking"; startX: number; startY: number }
+    | { phase: "horizontal"; startX: number }
+    | { phase: "committed-vertical" } // direction decided — never flip to horizontal
+  >({ phase: "idle" })
+
+  // Only React state needed: whether to show the swipe-hint overlay (one update per gesture)
+  const [showHint, setShowHint] = useState(false)
+
+  const dragDeltaRef = useRef(0)
+  const divRef = useRef<HTMLDivElement>(null)
+
+  const resetDomStyles = () => {
+    if (!divRef.current) return
+    divRef.current.style.transform = ""
+    divRef.current.style.background = ""
+    divRef.current.style.transition = ""
+  }
 
   return (
     <div
-      className={`task-card ${state.t === "dragging" && !disabled ? "dragging" : ""} ${className ?? ""}`}
+      ref={divRef}
+      className={`task-card ${showHint && !disabled ? "dragging" : ""} ${className ?? ""}`}
       onTouchStart={(ev) => {
         if (!disabled) {
           const touch = ev.touches[0]
-          setStatus({ t: "tracking", startX: touch.clientX, startY: touch.clientY })
-          setDragDelta(0)
+          gestureRef.current = { phase: "tracking", startX: touch.clientX, startY: touch.clientY }
+          dragDeltaRef.current = 0
+          if (divRef.current) divRef.current.style.transition = "none"
         }
       }}
       onTouchMove={(ev) => {
         if (disabled) return
         const touch = ev.touches[0]
         if (!touch) return
+        const g = gestureRef.current
 
-        if (state.t === "tracking") {
-          const deltaX = touch.clientX - state.startX
-          const deltaY = touch.clientY - state.startY
-          // Wait until there's enough movement to determine direction
+        if (g.phase === "tracking") {
+          const deltaX = touch.clientX - g.startX
+          const deltaY = touch.clientY - g.startY
           if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return
+
           if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal gesture — take over from browser scroll
-            setStatus({ t: "dragging", startX: state.startX })
-            setDragDelta(deltaX)
+            // Horizontal — take over swipe
+            gestureRef.current = { phase: "horizontal", startX: g.startX }
+            dragDeltaRef.current = deltaX
+            if (divRef.current) {
+              divRef.current.style.transform = `translateX(${deltaX * 0.3}px)`
+              divRef.current.style.background = "black"
+            }
+            setShowHint(true)
           } else {
-            // Vertical gesture — reset so we don't interfere with scroll
-            setStatus({ t: "idle" })
+            // Vertical — commit to scroll; never re-evaluate as horizontal
+            gestureRef.current = { phase: "committed-vertical" }
+            if (divRef.current) divRef.current.style.transition = ""
           }
-        } else if (state.t === "dragging") {
-          setDragDelta(touch.clientX - state.startX)
+        } else if (g.phase === "horizontal") {
+          const deltaX = touch.clientX - g.startX
+          dragDeltaRef.current = deltaX
+          if (divRef.current) {
+            divRef.current.style.transform = `translateX(${deltaX * 0.3}px)`
+          }
         }
+        // "committed-vertical" and "idle": do nothing — browser handles scroll
       }}
       onTouchEnd={(ev) => {
-        if (state.t === "dragging" && !disabled) {
-          const deltaX = dragDelta
+        const g = gestureRef.current
+        const deltaX = dragDeltaRef.current
+
+        if (g.phase === "horizontal" && !disabled) {
           if (deltaX > 30) {
             onDragged(ev as any)
-          }
-          if (deltaX < -30 && !swipeLeftDisabled) {
+          } else if (deltaX < -30 && !swipeLeftDisabled) {
             onSwipeLeft(ev as any)
           }
-        } else if ((state.t === "tracking" || state.t === "dragging") && dragDelta === 0 && onClick) {
-          // If not dragging much and click handler exists, treat as click
+        } else if (g.phase === "tracking" && onClick) {
+          // No movement — treat as tap
           onClick()
         }
-        setStatus({ t: "idle" })
-        setDragDelta(0)
+
+        resetDomStyles()
+        dragDeltaRef.current = 0
+        gestureRef.current = { phase: "idle" }
+        setShowHint(false)
+      }}
+      onTouchCancel={() => {
+        resetDomStyles()
+        dragDeltaRef.current = 0
+        gestureRef.current = { phase: "idle" }
+        setShowHint(false)
       }}
       onClick={() => {
-        if (state.t === "idle" && onClick) {
+        if (gestureRef.current.phase === "idle" && onClick) {
           onClick()
         }
       }}
       style={{
-        transform: dragDelta !== 0 ? `translateX(${dragDelta * 0.3}px)` : undefined,
-        background: state.t === "dragging" ? "black" : undefined,
         userSelect: "none",
-        touchAction: "pan-y",
       }}
     >
-      {state.t === "dragging" && !disabled && (
+      {showHint && !disabled && (
         <div className="task-card-hint">
           {!swipeLeftDisabled && <span className="task-card-hint-left">← Snooze</span>}
           <span className="task-card-hint-right">Complete →</span>
