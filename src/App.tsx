@@ -224,9 +224,11 @@ function DraggableDiv({
   swipeLeftDisabled?: boolean
   onClick?: () => void
 }) {
-  const [state, setStatus] = useState<{ t: "idle" } | { t: "dragging"; startX: number }>({
-    t: "idle",
-  })
+  const [state, setStatus] = useState<
+    | { t: "idle" }
+    | { t: "tracking"; startX: number; startY: number }
+    | { t: "dragging"; startX: number }
+  >({ t: "idle" })
   const [dragDelta, setDragDelta] = useState(0)
 
   return (
@@ -235,15 +237,30 @@ function DraggableDiv({
       onTouchStart={(ev) => {
         if (!disabled) {
           const touch = ev.touches[0]
-          setStatus({ t: "dragging", startX: touch.clientX })
+          setStatus({ t: "tracking", startX: touch.clientX, startY: touch.clientY })
           setDragDelta(0)
         }
       }}
       onTouchMove={(ev) => {
-        if (state.t === "dragging" && ev.touches[0] && !disabled) {
-          const touch = ev.touches[0]
-          const delta = touch.clientX - state.startX
-          setDragDelta(delta)
+        if (disabled) return
+        const touch = ev.touches[0]
+        if (!touch) return
+
+        if (state.t === "tracking") {
+          const deltaX = touch.clientX - state.startX
+          const deltaY = touch.clientY - state.startY
+          // Wait until there's enough movement to determine direction
+          if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            // Horizontal gesture — take over from browser scroll
+            setStatus({ t: "dragging", startX: state.startX })
+            setDragDelta(deltaX)
+          } else {
+            // Vertical gesture — reset so we don't interfere with scroll
+            setStatus({ t: "idle" })
+          }
+        } else if (state.t === "dragging") {
+          setDragDelta(touch.clientX - state.startX)
         }
       }}
       onTouchEnd={(ev) => {
@@ -255,7 +272,7 @@ function DraggableDiv({
           if (deltaX < -30 && !swipeLeftDisabled) {
             onSwipeLeft(ev as any)
           }
-        } else if (state.t === "dragging" && dragDelta === 0 && onClick) {
+        } else if ((state.t === "tracking" || state.t === "dragging") && dragDelta === 0 && onClick) {
           // If not dragging much and click handler exists, treat as click
           onClick()
         }
@@ -271,7 +288,7 @@ function DraggableDiv({
         transform: dragDelta !== 0 ? `translateX(${dragDelta * 0.3}px)` : undefined,
         background: state.t === "dragging" ? "black" : undefined,
         userSelect: "none",
-        touchAction: "none",
+        touchAction: "pan-y",
       }}
     >
       {state.t === "dragging" && !disabled && (
