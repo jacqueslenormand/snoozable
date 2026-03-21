@@ -652,7 +652,52 @@ button {
   font-size: 14px;
 }
 
-/* Responsive */
+/* Thick scrollbar for the main content area */
+.app-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.app-content::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.app-content::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 4px;
+}
+
+.app-content::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+/* Drag handle for task reordering */
+.drag-handle {
+  font-size: 20px;
+  color: #ccc;
+  padding: 0 0 0 12px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  color: #999;
+}
+
+/* Visual state for the card being reordered */
+.task-card.task-card-reordering {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  opacity: 0.9;
+  transform: scale(1.02);
+  z-index: 10;
+  border-color: #667eea;
+}
+
 @media (max-width: 480px) {
   .app-header h1 {
     font-size: 18px;

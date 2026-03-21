@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import * as z from "zod"
 import { isTaskDueOnDay, dayOfDate, getNextScheduledDayNumber, formatNextScheduledDay } from "./taskUtils"
 import "./App.css"
@@ -209,6 +209,33 @@ function getStateFromLocalStorage(): State | null {
   }
 }
 
+const TASK_ORDER_KEY = "__workout_today_order"
+
+function getTodayString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function loadTodayTaskOrder(): string[] | null {
+  try {
+    const raw = localStorage.getItem(TASK_ORDER_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { date?: string; order?: unknown }
+    if (parsed.date !== getTodayString()) {
+      localStorage.removeItem(TASK_ORDER_KEY)
+      return null
+    }
+    return Array.isArray(parsed.order) ? (parsed.order as string[]) : null
+  } catch {
+    localStorage.removeItem(TASK_ORDER_KEY)
+    return null
+  }
+}
+
+function saveTodayTaskOrder(order: string[]): void {
+  localStorage.setItem(TASK_ORDER_KEY, JSON.stringify({ date: getTodayString(), order }))
+}
+
 function DraggableDiv({
   children,
   onDragged,
@@ -216,6 +243,7 @@ function DraggableDiv({
   disabled = false,
   swipeLeftDisabled = false,
   onClick,
+  className,
 }: {
   children: React.ReactNode
   onDragged: (event: React.TouchEvent<HTMLDivElement>) => void
@@ -223,6 +251,7 @@ function DraggableDiv({
   disabled?: boolean
   swipeLeftDisabled?: boolean
   onClick?: () => void
+  className?: string
 }) {
   const [state, setStatus] = useState<
     | { t: "idle" }
@@ -233,7 +262,7 @@ function DraggableDiv({
 
   return (
     <div
-      className={`task-card ${state.t === "dragging" && !disabled ? "dragging" : ""}`}
+      className={`task-card ${state.t === "dragging" && !disabled ? "dragging" : ""} ${className ?? ""}`}
       onTouchStart={(ev) => {
         if (!disabled) {
           const touch = ev.touches[0]
@@ -939,6 +968,19 @@ function HomeView({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [localOrder, setLocalOrder] = useState<string[]>(() => loadTodayTaskOrder() ?? [])
+  const [dragState, setDragState] = useState<{
+    draggedId: string
+    startY: number
+    deltaY: number
+    insertIndex: number
+    originalIndex: number
+    cardHeight: number
+  } | null>(null)
+  const dragStateRef = useRef(dragState)
+  dragStateRef.current = dragState
+  const taskListRef = useRef<HTMLDivElement>(null)
+
   const tasksAtLocation = getTasksDueAtLocations(state, locationsIdsSelected, selectedDate)
 
   const today = new Date()
@@ -947,6 +989,71 @@ function HomeView({
   selectedDateAtMidnight.setHours(0, 0, 0, 0)
   const isToday = selectedDate.toDateString() === today.toDateString()
   const isPast = selectedDateAtMidnight < today
+
+  // Apply saved order for today; new tasks (not in order) append at the end
+  const orderedTasks = (() => {
+    if (!isToday || localOrder.length === 0) return tasksAtLocation
+    const orderMap = new Map(localOrder.map((id, i) => [id, i]))
+    return [...tasksAtLocation].sort((a, b) => {
+      const aIdx = orderMap.get(a.id) ?? Infinity
+      const bIdx = orderMap.get(b.id) ?? Infinity
+      return aIdx - bIdx
+    })
+  })()
+
+  // Apply drag reordering for live visual feedback
+  const displayedTasks = (() => {
+    if (!dragState) return orderedTasks
+    const tasks = [...orderedTasks]
+    const draggedIdx = tasks.findIndex((t) => t.id === dragState.draggedId)
+    if (draggedIdx === -1) return tasks
+    const [item] = tasks.splice(draggedIdx, 1)
+    tasks.splice(dragState.insertIndex, 0, item)
+    return tasks
+  })()
+
+  useEffect(() => {
+    if (!dragState) return
+
+    const snapshot = orderedTasks
+    const originalIndex = snapshot.findIndex((t) => t.id === dragState.draggedId)
+    const { cardHeight } = dragState
+
+    const handleMove = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      if (!touch || !dragStateRef.current) return
+      const deltaY = touch.clientY - dragStateRef.current.startY
+      const steps = Math.round(deltaY / cardHeight)
+      const newInsertIndex = Math.max(0, Math.min(snapshot.length - 1, originalIndex + steps))
+      setDragState((prev) => (prev ? { ...prev, deltaY, insertIndex: newInsertIndex } : null))
+    }
+
+    const handleEnd = () => {
+      const current = dragStateRef.current
+      if (!current) return
+      const tasks = [...snapshot]
+      const draggedIdx = tasks.findIndex((t) => t.id === current.draggedId)
+      if (draggedIdx !== -1) {
+        const [item] = tasks.splice(draggedIdx, 1)
+        tasks.splice(current.insertIndex, 0, item)
+        const newOrder = tasks.map((t) => t.id)
+        setLocalOrder(newOrder)
+        saveTodayTaskOrder(newOrder)
+      }
+      setDragState(null)
+    }
+
+    document.addEventListener("touchmove", handleMove, { passive: false })
+    document.addEventListener("touchend", handleEnd)
+    document.addEventListener("touchcancel", handleEnd)
+
+    return () => {
+      document.removeEventListener("touchmove", handleMove)
+      document.removeEventListener("touchend", handleEnd)
+      document.removeEventListener("touchcancel", handleEnd)
+    }
+  }, [dragState?.draggedId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const goBack = () => {
     const newDate = new Date(selectedDate)
@@ -1071,19 +1178,22 @@ function HomeView({
         </div>
       )}
 
-      <div className="task-list">
-        {tasksAtLocation.length === 0 ? (
+      <div className="task-list" ref={taskListRef}>
+        {displayedTasks.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">✨</div>
             <h3>{isToday ? "All done" : "Nothing scheduled on this day"}</h3>
           </div>
         ) : (
-          tasksAtLocation.map((task) => {
+          displayedTasks.map((task) => {
             const isSnoozed = state.snoozedTasks[task.id]
+            const isBeingDragged = dragState?.draggedId === task.id
             return (
               <DraggableDiv
                 key={task.id}
-                onClick={() => setSelectedTaskId(task.id)}
+                disabled={dragState !== null}
+                className={isBeingDragged ? "task-card-reordering" : ""}
+                onClick={dragState === null ? () => setSelectedTaskId(task.id) : undefined}
                 onDragged={() => {
                   setState(addTaskCompletion(state, task.id, isPast ? selectedDate : new Date()), "Complete task")
                 }}
@@ -1111,6 +1221,35 @@ function HomeView({
                     {isSnoozed && <span className="snoozed-indicator">💤 Snoozed</span>}
                   </div>
                 </div>
+                {isToday && (
+                  <div
+                    className="drag-handle"
+                    onTouchStart={(e) => {
+                      e.stopPropagation()
+                      const touch = e.touches[0]
+                      if (!touch) return
+                      const index = orderedTasks.findIndex((t) => t.id === task.id)
+                      if (index === -1) return
+                      let cardHeight = 88
+                      if (taskListRef.current) {
+                        const cards = taskListRef.current.querySelectorAll(".task-card")
+                        if (cards.length > 0) {
+                          cardHeight = cards[0].getBoundingClientRect().height + 8
+                        }
+                      }
+                      setDragState({
+                        draggedId: task.id,
+                        startY: touch.clientY,
+                        deltaY: 0,
+                        insertIndex: index,
+                        originalIndex: index,
+                        cardHeight,
+                      })
+                    }}
+                  >
+                    ⠿
+                  </div>
+                )}
               </DraggableDiv>
             )
           })
