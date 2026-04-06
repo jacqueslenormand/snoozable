@@ -246,6 +246,16 @@ body {
   color: #333;
   margin-bottom: 4px;
   letter-spacing: -0.3px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.overdue-indicator {
+  font-size: 12px;
+  font-weight: 400;
+  color: #bbb;
+  letter-spacing: 0;
 }
 
 .task-description {
@@ -268,17 +278,6 @@ body {
   border-radius: 4px;
   font-size: 11px;
   color: #666;
-}
-
-.snoozed-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  background: #fff3cd;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #856404;
 }
 
 .empty-state {

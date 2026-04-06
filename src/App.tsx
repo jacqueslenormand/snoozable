@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from "react"
 import * as z from "zod"
-import { isTaskDueOnDay, dayOfDate, getNextScheduledDayNumber, formatNextScheduledDay } from "./taskUtils"
+import {
+  isTaskDueOnDay,
+  dayOfDate,
+  getNextScheduledDayNumber,
+  formatNextScheduledDay,
+} from "./taskUtils"
 import "./App.css"
 
 const locationSchema = z.object({
@@ -741,18 +746,18 @@ function TaskDetailModal({
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-           <button
-             type="button"
-             className="btn btn-primary"
-             onClick={() => {
-               if (taskId) {
-                 onEdit(taskId)
-                 onClose()
-               }
-             }}
-           >
-             Edit Task
-           </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              if (taskId) {
+                onEdit(taskId)
+                onClose()
+              }
+            }}
+          >
+            Edit Task
+          </button>
         </div>
       </div>
     </div>
@@ -824,7 +829,11 @@ function TaskEditModal({
   }
 
   return (
-    <div className={`modal-overlay ${isOpen ? "open" : ""}`} onClick={onClose} style={{ zIndex: isOpen ? 1000 : -1 }}>
+    <div
+      className={`modal-overlay ${isOpen ? "open" : ""}`}
+      onClick={onClose}
+      style={{ zIndex: isOpen ? 1000 : -1 }}
+    >
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h2 style={{ marginTop: 0 }}>Edit Task</h2>
 
@@ -1222,8 +1231,12 @@ function HomeView({
           </div>
         ) : (
           displayedTasks.map((task) => {
-            const isSnoozed = state.snoozedTasks[task.id]
             const isBeingDragged = dragState?.draggedId === task.id
+            const lastCompleted = state.mostRecentTaskCompletions[task.id]
+            const lastSnoozedTs = state.snoozedTasks[task.id]
+            const lastSnoozedDay = lastSnoozedTs ? dayOfDate(new Date(lastSnoozedTs)) : undefined
+            const nextScheduledDay = getNextScheduledDayNumber(task, lastCompleted, lastSnoozedDay)
+            const daysOverdue = dayOfDate(new Date()) - nextScheduledDay
             return (
               <DraggableDiv
                 key={task.id}
@@ -1231,7 +1244,10 @@ function HomeView({
                 className={isBeingDragged ? "task-card-reordering" : ""}
                 onClick={dragState === null ? () => setSelectedTaskId(task.id) : undefined}
                 onDragged={() => {
-                  setState(addTaskCompletion(state, task.id, isPast ? selectedDate : new Date()), "Complete task")
+                  setState(
+                    addTaskCompletion(state, task.id, isPast ? selectedDate : new Date()),
+                    "Complete task",
+                  )
                 }}
                 onSwipeLeft={() => {
                   setState(snoozeTask(state, task.id, new Date()), "Snooze task")
@@ -1239,7 +1255,12 @@ function HomeView({
                 swipeLeftDisabled={isPast}
               >
                 <div className="task-card-content">
-                  <div className="task-name">{task.name}</div>
+                  <div className="task-name">
+                    {task.name} dzdz
+                    {daysOverdue > 0 && (
+                      <span className="overdue-indicator">{daysOverdue}d overdue</span>
+                    )}
+                  </div>
                   {task.description && <div className="task-description">{task.description}</div>}
                   <div className="task-meta">
                     {task.locationIds.length > 0 && (
@@ -1254,7 +1275,6 @@ function HomeView({
                         })}
                       </>
                     )}
-                    {isSnoozed && <span className="snoozed-indicator">💤 Snoozed</span>}
                   </div>
                 </div>
                 {isToday && (
@@ -1296,13 +1316,13 @@ function HomeView({
         isOpen={selectedTaskId !== null}
         onClose={() => setSelectedTaskId(null)}
         task={selectedTaskId ? state.tasks.find((t) => t.id === selectedTaskId) || null : null}
-                 taskId={selectedTaskId}
-         state={state}
-         onEdit={(taskId) => {
-           setEditingTaskId(taskId)
-           setSelectedTaskId(null)
-         }}
-       />
+        taskId={selectedTaskId}
+        state={state}
+        onEdit={(taskId) => {
+          setEditingTaskId(taskId)
+          setSelectedTaskId(null)
+        }}
+      />
 
       <TaskEditModal
         isOpen={editingTaskId !== null}
@@ -1370,13 +1390,33 @@ function ManageTasksView({
           state.tasks.map((task) => (
             <div key={task.id} className="item-card">
               <div className="item-info">
-                <h3>{task.name}</h3>
+                <div style={{ marginBottom: "4px" }}>
+                  {(() => {
+                    const lastCompleted = state.mostRecentTaskCompletions[task.id]
+                    const lastSnoozedTs = state.snoozedTasks[task.id]
+                    const lastSnoozed =
+                      lastSnoozedTs !== undefined ? dayOfDate(new Date(lastSnoozedTs)) : undefined
+                    const nextDayNum = getNextScheduledDayNumber(task, lastCompleted, lastSnoozed)
+                    const daysOverdue = dayOfDate(new Date()) - nextDayNum
+                    return (
+                      <h3
+                        style={{ margin: 0, display: "flex", alignItems: "baseline", gap: "8px" }}
+                      >
+                        {task.name}
+                        {daysOverdue > 0 && (
+                          <span className="overdue-indicator">{daysOverdue}d overdue</span>
+                        )}
+                      </h3>
+                    )
+                  })()}
+                </div>
                 {task.description && <p>{task.description}</p>}
                 <div style={{ marginTop: "8px", fontSize: "12px", color: "#999" }}>
                   {(() => {
                     const lastCompleted = state.mostRecentTaskCompletions[task.id]
                     const lastSnoozedTs = state.snoozedTasks[task.id]
-                    const lastSnoozed = lastSnoozedTs !== undefined ? dayOfDate(new Date(lastSnoozedTs)) : undefined
+                    const lastSnoozed =
+                      lastSnoozedTs !== undefined ? dayOfDate(new Date(lastSnoozedTs)) : undefined
                     const nextDayNum = getNextScheduledDayNumber(task, lastCompleted, lastSnoozed)
                     const nextLabel = formatNextScheduledDay(nextDayNum)
                     const freqLabel =
@@ -1389,26 +1429,40 @@ function ManageTasksView({
                     const lastActivityTs =
                       lastCompleted !== undefined && lastSnoozedTs !== undefined
                         ? Math.max(lastCompleted, lastSnoozedTs)
-                        : lastCompleted ?? lastSnoozedTs
+                        : (lastCompleted ?? lastSnoozedTs)
                     const lastActivityLabel = (() => {
                       if (lastActivityTs === undefined) return null
-                      const isSnooze = lastSnoozedTs !== undefined && lastActivityTs === lastSnoozedTs && lastActivityTs !== lastCompleted
+                      const isSnooze =
+                        lastSnoozedTs !== undefined &&
+                        lastActivityTs === lastSnoozedTs &&
+                        lastActivityTs !== lastCompleted
                       const date = new Date(lastActivityTs)
-                      const formatted = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      const formatted = date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
                       return `${isSnooze ? "Snoozed" : "Last done"}: ${formatted}`
                     })()
 
                     return (
                       <>
                         {`${freqLabel} · Next: ${nextLabel}`}
-                        {lastActivityLabel && <div style={{ marginTop: "2px", opacity: 0.75 }}>{lastActivityLabel}</div>}
+                        {lastActivityLabel && (
+                          <div style={{ marginTop: "2px", opacity: 0.75 }}>{lastActivityLabel}</div>
+                        )}
                       </>
                     )
                   })()}
                 </div>
               </div>
               <div className="item-actions">
-                 <button className="btn btn-secondary btn-sm" onClick={() => setEditingTaskId(task.id)}>Edit</button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setEditingTaskId(task.id)}
+                >
+                  Edit
+                </button>
                 <button
                   className="btn btn-danger btn-sm"
                   onClick={() => setState(deleteTask(state, task.id), "Delete task")}
@@ -1420,23 +1474,23 @@ function ManageTasksView({
           ))
         )}
       </div>
-       <TaskEditModal
-         isOpen={editingTaskId !== null}
-         onClose={() => setEditingTaskId(null)}
-         task={editingTaskId ? state.tasks.find((t) => t.id === editingTaskId) || null : null}
-         state={state}
-         onSubmit={(updatedTask) => {
-           const newTasks = state.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
-           setState(
-             {
-               ...state,
-               tasks: newTasks,
-             },
-             "Edit task",
-           )
-           setEditingTaskId(null)
-         }}
-       />
+      <TaskEditModal
+        isOpen={editingTaskId !== null}
+        onClose={() => setEditingTaskId(null)}
+        task={editingTaskId ? state.tasks.find((t) => t.id === editingTaskId) || null : null}
+        state={state}
+        onSubmit={(updatedTask) => {
+          const newTasks = state.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+          setState(
+            {
+              ...state,
+              tasks: newTasks,
+            },
+            "Edit task",
+          )
+          setEditingTaskId(null)
+        }}
+      />
     </div>
   )
 }
