@@ -1256,7 +1256,7 @@ function HomeView({
               >
                 <div className="task-card-content">
                   <div className="task-name">
-                    {task.name} dzdz
+                    {task.name}
                     {daysOverdue > 0 && (
                       <span className="overdue-indicator">{daysOverdue}d overdue</span>
                     )}
